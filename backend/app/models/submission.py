@@ -1,0 +1,96 @@
+from datetime import datetime
+
+from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.db.base_class import Base
+
+
+class VideoSubmission(Base):
+    """病患針對某復健動作上傳的居家復健影片（影片檔實際上傳後續實作，先存 URL 佔位）。"""
+
+    __tablename__ = "video_submissions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    plan_id: Mapped[int] = mapped_column(ForeignKey("rehab_plans.id"), index=True)
+    plan_version_id: Mapped[int] = mapped_column(ForeignKey("plan_versions.id"))
+    plan_item_id: Mapped[int] = mapped_column(ForeignKey("plan_items.id"))
+    patient_id: Mapped[int] = mapped_column(ForeignKey("patients.id"), index=True)
+    submitted_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    video_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # ANALYZING | PENDING_REVIEW | REVIEWED
+    status: Mapped[str] = mapped_column(String(30), default="ANALYZING", index=True)
+
+    # 相對於 MEDIA_ROOT；轉檔完成後指向 submissions/{id}/s{id}.mp4
+    video_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    original_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # 比對用的導師影片快照（上傳當下 plan item 綁定的導師影片）
+    teacher_video_id: Mapped[int | None] = mapped_column(
+        ForeignKey("teacher_videos.id"), nullable=True
+    )
+    # PENDING | TRANSCODING | EXTRACTING | COMPARING | DONE | FAILED
+    analysis_status: Mapped[str] = mapped_column(String(30), default="PENDING", index=True)
+    analysis_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    celery_task_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    # 護理師審核（一對一，直接放同表）
+    reviewed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # APPROVED | NEEDS_ATTENTION
+    decision: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    plan = relationship("RehabPlan")
+    plan_version = relationship("PlanVersion")
+    plan_item = relationship("PlanItem")
+    patient = relationship("Patient")
+    reviewer = relationship("User")
+    analysis = relationship("AnalysisResult", back_populates="submission", uselist=False)
+    reports = relationship("NurseReport", back_populates="submission")
+
+
+class AnalysisResult(Base):
+    """復健動作演算法的分析結果。目前由 seed 產生模擬值，未來由真演算法寫入。"""
+
+    __tablename__ = "analysis_results"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    submission_id: Mapped[int] = mapped_column(
+        ForeignKey("video_submissions.id"), unique=True, index=True
+    )
+    analyzed_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    overall_score: Mapped[float] = mapped_column(Float)  # 0-100
+    joint_angle_score: Mapped[float] = mapped_column(Float)
+    stability_score: Mapped[float] = mapped_column(Float)
+    posture_score: Mapped[float] = mapped_column(Float)
+    # 細項：joint_deviations（各關節角度偏差）+ motion_sequence（關節角度時間序列，驅動 3D 重播）
+    metrics: Mapped[dict] = mapped_column(JSON, default=dict)
+    summary_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    submission = relationship("VideoSubmission", back_populates="analysis")
+
+
+class NurseReport(Base):
+    """護理師回報醫生：狀況回報 / 計畫調整建議 / 異常。"""
+
+    __tablename__ = "nurse_reports"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    plan_id: Mapped[int] = mapped_column(ForeignKey("rehab_plans.id"), index=True)
+    submission_id: Mapped[int | None] = mapped_column(
+        ForeignKey("video_submissions.id"), nullable=True
+    )
+    nurse_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    # STATUS_REPORT | ADJUSTMENT_SUGGESTION | ABNORMALITY
+    kind: Mapped[str] = mapped_column(String(30), default="STATUS_REPORT")
+    severity: Mapped[str] = mapped_column(String(20), default="NORMAL")  # NORMAL | PRIORITY | URGENT
+    content: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    # PENDING_DOCTOR_REVIEW | REVIEWED
+    status: Mapped[str] = mapped_column(String(30), default="PENDING_DOCTOR_REVIEW", index=True)
+    doctor_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    plan = relationship("RehabPlan")
+    submission = relationship("VideoSubmission", back_populates="reports")
+    nurse = relationship("User")

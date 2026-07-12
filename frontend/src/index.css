@@ -1,0 +1,106 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* shadcn 語意色 → 暖色系 */
+    --background: 36 44% 96%; /* cream #FAF7F2 */
+    --foreground: 27 20% 20%; /* bark-700 #3D3229 */
+    --card: 0 0% 100%;
+    --card-foreground: 27 20% 20%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 27 20% 20%;
+    --primary: 18 48% 57%; /* clay-500 #C67B5C */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 76 17% 52%; /* sage-500 #8A9B6E */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 37 40% 92%; /* parchment #F3EDE3 */
+    --muted-foreground: 30 13% 48%; /* bark-400 #8A7B6A */
+    --accent: 21 58% 95%; /* clay-50 #FAF1EC */
+    --accent-foreground: 20 45% 39%; /* clay-700 */
+    --destructive: 12 51% 47%; /* rust #B5543B */
+    --destructive-foreground: 0 0% 100%;
+    --border: 36 30% 88%; /* sand #EAE3D8 */
+    --input: 36 30% 88%;
+    --ring: 21 51% 63%; /* clay-400 */
+    --radius: 1rem;
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-cream text-bark-700 font-sans antialiased;
+  /* 極淡暖色 radial 漸層底紋 */
+  background-image:
+    radial-gradient(1200px 800px at 85% -10%, rgba(198, 123, 92, 0.06), transparent 60%),
+    radial-gradient(1000px 700px at -10% 30%, rgba(138, 155, 110, 0.05), transparent 55%),
+    radial-gradient(800px 600px at 50% 110%, rgba(217, 164, 65, 0.04), transparent 55%);
+  background-attachment: fixed;
+}
+
+::selection {
+  @apply bg-clay-200 text-bark-800;
+}
+
+/* 柔和捲軸 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-sand rounded-full;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-bark-300;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-2xl shadow-soft border border-sand/60 transition-shadow duration-300;
+  }
+  .card-hover {
+    @apply hover:shadow-lifted hover:border-clay-200/70 hover:-translate-y-0.5 transition-all duration-300;
+  }
+  .btn-primary {
+    @apply inline-flex items-center gap-2 rounded-xl bg-clay-500 px-4 py-2.5 text-sm font-medium text-white shadow-soft transition-all duration-200 hover:bg-clay-600 hover:shadow-glow hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-bark-600 border border-sand shadow-soft transition-all duration-200 hover:border-clay-300 hover:text-clay-600 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-clay-600 transition-colors hover:bg-clay-50;
+  }
+  .input {
+    @apply w-full rounded-xl border border-sand bg-white px-4 py-2.5 text-sm text-bark-700 placeholder:text-bark-300 transition-all duration-200 focus:outline-none focus:border-clay-400 focus:shadow-ring;
+  }
+  .label {
+    @apply block text-sm font-medium text-bark-600 mb-1.5;
+  }
+  /* 圖示底盤 */
+  .icon-chip {
+    @apply inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl;
+  }
+  /* shimmer 骨架 */
+  .skeleton {
+    @apply relative overflow-hidden rounded-xl bg-parchment;
+  }
+  .skeleton::after {
+    content: '';
+    @apply absolute inset-0 -translate-x-full;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent);
+    animation: shimmer 1.6s infinite;
+  }
+}

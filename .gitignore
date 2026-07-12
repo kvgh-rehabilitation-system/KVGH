@@ -1,0 +1,37 @@
+# ── 環境 / 依賴 / 建置產物 ──────────────────────────────
+node_modules/
+dist/
+build/
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.eggs/
+.env
+.env.*
+!.env.example
+.claude/settings.local.json
+.DS_Store
+Thumbs.db
+
+# ── 本地資料庫（開發遺留） ──────────────────────────────
+kvgh.db
+
+# ── 影片與演算法產物（不進 git） ────────────────────────
+media/
+測試影片/
+
+# ── 模型權重與二進位 ────────────────────────────────────
+# 大權重（~1.5GB）不進 git：由 GitHub Release `weights-v1` 提供，
+# 首次 docker compose up 時 weights-init 服務自動下載（scripts/download_weights.sh）。
+# 少數必要小檔（AlphaPose model_files/*.npy、MotionBERT params/、已編譯 .so）
+# 在對應子目錄的 .gitignore 以 `!` 白名單納入。
+*.pth
+*.bin
+*.weights
+*.onnx
+*.npy
+*.pkl
+*.so
+*.dll

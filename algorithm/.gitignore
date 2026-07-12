@@ -1,0 +1,70 @@
+# AlphaPose / MotionBERT model folders
+2D_and_3D_project/AlphaPose-master/detector/yolo/data/
+2D_and_3D_project/AlphaPose-master/detector/yolox/data/
+2D_and_3D_project/MotionBERT-main/model/
+
+# models / binaries
+*.pth
+*.pkl
+*.npy
+*.dll
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Python cache and tooling
+__pycache__/
+*.py[cod]
+*.so
+.Python
+.cache/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+*.cover
+htmlcov/
+ipynb_checkpoints/
+
+# Environments
+*.tar.gz
+.env
+.env.*
+.venv/
+venv/
+env/
+
+# Packaging / builds
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+*.egg
+
+# Project outputs (videos, pose results, generated figures)
+alphapose_output/
+motionbert_output/
+output_video/
+output_4_video/
+angles_json/
+scores_json/
+stair_json/
+mapping_png/
+fig/
+video/
+tutorial_video/
+fig/
+json/
+
+# Third-party project artifacts
+2D_and_3D_project/AlphaPose-master/build/
+2D_and_3D_project/AlphaPose-master/alphapose_output/
+2D_and_3D_project/AlphaPose-master/motionbert_output/
+2D_and_3D_project/AlphaPose-master/*.egg-info/
+2D_and_3D_project/AlphaPose-master/.eggs/
+2D_and_3D_project/AlphaPose-master/pretrained_models/
+2D_and_3D_project/MotionBERT-main/model/

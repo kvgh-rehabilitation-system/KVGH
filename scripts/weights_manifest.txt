@@ -1,0 +1,7 @@
+# KVGH 模型權重清單：Release資產名 sha256 大小(bytes) 目標路徑（相對 ENGINE_ROOT，可含空白）
+# 資產下載來源：https://github.com/kvgh-rehabilitation-system/KVGH/releases/tag/weights-v1
+yolox_x.pth 5652330b6ae860043f091b8f550a60c10e1129f416edfdb65c259be6caf355cf 793463373 AlphaPose-master/detector/yolox/data/yolox_x.pth
+yolov3-spp.weights 87a1e8c85c763316f34e428f2295e1db9ed4abcec59dd9544f8052f50de327b4 252209544 AlphaPose-master/detector/yolo/data/yolov3-spp.weights
+halpe26_fast_res50_256x192.pth 918ab95f00c36174a887ef02a7c734a65c7f3cc7ae0e7dc83e09c8a362d0b2ab 162643824 AlphaPose-master/halpe26_fast_res50_256x192.pth
+motionbert_latest_epoch.bin 02a9ee017e5c9d688b5dd41e0055bddb75b6eee7f5eed326a8cdc6e5bf08eaf8 169958969 MotionBERT-main/model/MotionBERT (162MB)/latest_epoch.bin
+h36m_ft_best_epoch.bin 597c708bd585646cc6961df057ef73634edb83a4d5c1155d98a4cc0c04e81b98 169958969 MotionBERT-main/model/3D Pose (H36M-SH, ft)/best_epoch.bin

@@ -1,0 +1,123 @@
+from datetime import date, datetime
+
+from pydantic import BaseModel
+
+
+# ---- 演算法分析 ----
+
+class AnalysisOut(BaseModel):
+    analyzed_at: datetime
+    overall_score: float
+    joint_angle_score: float
+    stability_score: float
+    posture_score: float
+    metrics: dict
+    summary_text: str | None = None
+    # LLM 分析報告（未來由 LLM worker 寫入 metrics["ai_report"]，此處帶出，免 schema migration）
+    ai_report: str | None = None
+
+
+class ScoreTrendPoint(BaseModel):
+    date: date
+    overall: float
+    joint_angle: float
+    stability: float
+    posture: float
+
+
+class CompletionTrendPoint(BaseModel):
+    week_start: date
+    label: str  # 例如「6/22 週」
+    completed: int
+    prescribed: int
+    rate: float  # 0~1
+
+
+# ---- 上傳與審核 ----
+
+class SubmissionListItem(BaseModel):
+    id: int
+    patient_id: int
+    patient_name: str
+    patient_number: str
+    plan_id: int
+    plan_name: str
+    item_name: str
+    submitted_at: datetime
+    status: str  # ANALYZING | PENDING_REVIEW | REVIEWED
+    decision: str | None = None  # APPROVED | NEEDS_ATTENTION
+    overall_score: float | None = None
+    needs_attention: bool = False  # 分數偏低或連續下滑
+
+
+class SubmissionItemInfo(BaseModel):
+    id: int
+    name: str
+    frequency: str | None = None
+    description: str | None = None
+    precaution: str | None = None
+    example_video_url: str | None = None
+    example_video_note: str | None = None
+    teacher_video_id: int | None = None
+
+
+class SubmissionDetailOut(BaseModel):
+    id: int
+    patient_id: int
+    patient_name: str
+    patient_number: str
+    patient_age: int
+    patient_gender: str
+    plan_id: int
+    plan_name: str
+    plan_version: int
+    item: SubmissionItemInfo
+    submitted_at: datetime
+    duration_seconds: int | None = None
+    video_url: str | None = None
+    status: str
+    analysis_status: str = "PENDING"
+    analysis_error: str | None = None
+    teacher_video_id: int | None = None
+    analysis: AnalysisOut | None = None
+    reviewer_name: str | None = None
+    reviewed_at: datetime | None = None
+    decision: str | None = None
+    feedback: str | None = None
+    score_history: list[ScoreTrendPoint]  # 同病患同動作的歷次分數
+
+
+class ReviewSubmit(BaseModel):
+    decision: str  # APPROVED | NEEDS_ATTENTION
+    feedback: str | None = None
+
+
+# ---- 護理師回報醫生 ----
+
+class NurseReportCreate(BaseModel):
+    plan_id: int
+    submission_id: int | None = None
+    kind: str  # STATUS_REPORT | ADJUSTMENT_SUGGESTION | ABNORMALITY
+    severity: str = "NORMAL"  # NORMAL | PRIORITY | URGENT
+    content: str
+
+
+class NurseReportOut(BaseModel):
+    id: int
+    plan_id: int
+    plan_name: str
+    patient_id: int
+    patient_name: str
+    patient_number: str
+    submission_id: int | None = None
+    nurse_name: str
+    kind: str
+    severity: str
+    content: str
+    created_at: datetime
+    status: str  # PENDING_DOCTOR_REVIEW | REVIEWED
+    doctor_comment: str | None = None
+
+
+class DoctorReportReview(BaseModel):
+    doctor_comment: str | None = None

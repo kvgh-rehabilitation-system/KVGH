@@ -1,0 +1,151 @@
+name: kvgh
+services:
+  postgres:
+    image: postgres:16
+    container_name: kvgh-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-kvgh}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-pg}
+      POSTGRES_DB: ${POSTGRES_DB:-kvgh}
+    ports:
+      - "${POSTGRES_HOST_PORT:-15432}:5432"
+    volumes:
+      - kvgh-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kvgh} -d ${POSTGRES_DB:-kvgh}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: kvgh-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-kvgh}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-change-me-mq}
+    ports:
+      # 5672 發布到主機：未來 VRAM 更大的遠端 GPU server 上的 worker 也連同一個 broker
+      - "${RABBITMQ_HOST_PORT:-5672}:5672"
+      # 管理介面僅限本機
+      - "127.0.0.1:${RABBITMQ_MGMT_PORT:-15672}:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    container_name: kvgh-backend
+    ports:
+      # 發布到主機：遠端開發（如 Mac 上的 vite dev）直連此後端
+      - "${BACKEND_PORT:-8000}:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-kvgh}:${POSTGRES_PASSWORD:-change-me-pg}@postgres:5432/${POSTGRES_DB:-kvgh}
+      CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-kvgh}:${RABBITMQ_PASS:-change-me-mq}@rabbitmq:5672//
+      MEDIA_ROOT: /data/media
+    volumes:
+      # 影片與演算法產物永久存放於專案目錄 media/（除非使用者刪除）
+      - ./media:/data/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: kvgh-frontend
+    ports:
+      - "${FRONTEND_PORT:-2000}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # 一次性：檢查/下載模型權重（~1.5GB，來自本 repo 的 GitHub Release weights-v1）。
+  # 冪等——權重齊全時秒過；缺權重時 workers 會等它成功完成才啟動。
+  weights-init:
+    image: curlimages/curl:8.11.1
+    container_name: kvgh-weights-init
+    user: "0"
+    entrypoint: ["/bin/sh", "/scripts/download_weights.sh"]
+    environment:
+      ENGINE_ROOT: /engine/2D_and_3D_project
+      MANIFEST: /scripts/weights_manifest.txt
+    volumes:
+      - ${ENGINE_DIR:-./algorithm/2D_and_3D_project}:/engine/2D_and_3D_project
+      - ./scripts:/scripts:ro
+    restart: "no"
+
+  worker-gpu:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    container_name: kvgh-worker-gpu
+    # autoscale=<上限>,1：無任務時常駐 1 個 process，佇列有任務自動擴增；
+    # 上限由 GPU VRAM 決定（2080 = 2），防止超收導致 OOM
+    command: >
+      celery -A worker.celery_app worker
+      -Q gpu -n gpu@%h
+      --autoscale=${GPU_MAX_CONCURRENCY:-2},1
+      --loglevel=INFO
+    environment: &worker-env
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-kvgh}:${POSTGRES_PASSWORD:-change-me-pg}@postgres:5432/${POSTGRES_DB:-kvgh}
+      CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-kvgh}:${RABBITMQ_PASS:-change-me-mq}@rabbitmq:5672//
+      MEDIA_ROOT: /data/media
+      ALGORITHM_DIR: /algorithm
+      ENGINE_DIR: /engine/2D_and_3D_project
+      GPU_MIN_FREE_VRAM_MB: ${GPU_MIN_FREE_VRAM_MB:-3000}
+      COMPARISON_TIMEOUT_SECONDS: ${COMPARISON_TIMEOUT_SECONDS:-1800}
+    volumes:
+      - ./media:/data/media
+      # git 追蹤的演算法腳本（get_2D_3D_script / humanpose_api / make_vid_json_api）
+      - ./algorithm:/algorithm
+      # 演算法引擎工作目錄（程式碼 git 追蹤、權重與已編譯 .so 為 gitignore；不打進 image）
+      - ${ENGINE_DIR:-./algorithm/2D_and_3D_project}:/engine/2D_and_3D_project
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      weights-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  worker-cpu:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    container_name: kvgh-worker-cpu
+    # 轉檔 / humanpose 比對（CPU-bound）/ 標註存檔，不佔 GPU 名額
+    command: >
+      celery -A worker.celery_app worker
+      -Q cpu -n cpu@%h
+      --autoscale=4,1
+      --loglevel=INFO
+    environment: *worker-env
+    volumes:
+      - ./media:/data/media
+      - ./algorithm:/algorithm
+      - ${ENGINE_DIR:-./algorithm/2D_and_3D_project}:/engine/2D_and_3D_project
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      weights-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  kvgh-pgdata:
