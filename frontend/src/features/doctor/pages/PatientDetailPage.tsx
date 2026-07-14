@@ -3,23 +3,16 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   Activity,
   ArrowLeft,
-  Cake,
   CalendarCheck,
-  CalendarDays,
   ClipboardList,
   FilePlus2,
-  IdCard,
-  Phone,
   Stethoscope,
-  User,
-  Users,
 } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { getPatient } from '../../../api/doctor'
 import { PlanHistoryList } from '../../../components/PlanHistoryList'
 import { VisitTimeline } from '../../../components/VisitTimeline'
 import { EmptyState } from '../../../components/ui/EmptyState'
-import { InfoGrid } from '../../../components/ui/InfoGrid'
 import { Loading } from '../../../components/ui/Loading'
 import { PageTransition, staggerContainer } from '../../../components/ui/PageTransition'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
@@ -76,8 +69,9 @@ export function PatientDetailPage() {
             />
           </div>
           <p className="mt-1 text-sm text-bark-400">
-            病患編號 {basic.patient_number} · {basic.age} 歲 /{' '}
-            {genderLabel[basic.gender] ?? basic.gender}
+            病患編號 {basic.patient_number} · {basic.age} 歲（{formatDate(basic.birth_date)}）·{' '}
+            {genderLabel[basic.gender] ?? basic.gender} · {basic.phone ?? '—'} · 建檔{' '}
+            {formatDate(basic.created_at)}
           </p>
         </div>
         <Link to={`/doctor/patients/${basic.id}/visits/new`} className="btn-primary">
@@ -153,62 +147,42 @@ export function PatientDetailPage() {
 }
 
 function OverviewTab({ detail }: { detail: PatientDetail }) {
-  const { basic, latest_visit } = detail
+  const { latest_visit } = detail
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <section className="card p-6">
-        <div className="mb-4 flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-sage-400" />
-          <h3 className="text-base font-semibold text-bark-700">基本資料</h3>
-        </div>
-        <InfoGrid
-          items={[
-            { icon: User, label: '姓名', value: basic.name },
-            { icon: IdCard, label: '病患編號', value: basic.patient_number },
-            { icon: Cake, label: '出生日期', value: formatDate(basic.birth_date) },
-            { icon: CalendarDays, label: '年齡', value: `${basic.age} 歲` },
-            { icon: Users, label: '性別', value: genderLabel[basic.gender] ?? basic.gender },
-            { icon: Phone, label: '聯絡電話', value: basic.phone ?? '—' },
-            { icon: FilePlus2, label: '建檔日期', value: formatDate(basic.created_at), span: true },
-          ]}
-        />
+        <h3 className="mb-4 text-base font-semibold text-bark-700">最近看診</h3>
+        {latest_visit ? (
+          <div className="space-y-3 text-sm">
+            <p className="font-medium text-bark-700">{formatDate(latest_visit.visit_date)}</p>
+            <div>
+              <p className="text-xs text-bark-300">主訴</p>
+              <p className="mt-0.5 text-bark-600">{latest_visit.chief_complaint || '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-bark-300">診斷</p>
+              <p className="mt-0.5 text-bark-600">{latest_visit.diagnosis || '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-bark-300">醫生評估</p>
+              <p className="mt-0.5 text-bark-600">{latest_visit.assessment || '—'}</p>
+            </div>
+            {latest_visit.rehab_decision && (
+              <p className="text-xs text-bark-400">
+                醫療決策：
+                <span className="font-medium text-clay-600">
+                  {rehabDecisionLabel[latest_visit.rehab_decision] ??
+                    latest_visit.rehab_decision}
+                </span>
+              </p>
+            )}
+          </div>
+        ) : (
+          <EmptyState message="尚無看診紀錄" />
+        )}
       </section>
 
-      <div className="space-y-6">
-        <section className="card p-6">
-          <h3 className="mb-4 text-base font-semibold text-bark-700">最近看診</h3>
-          {latest_visit ? (
-            <div className="space-y-3 text-sm">
-              <p className="font-medium text-bark-700">{formatDate(latest_visit.visit_date)}</p>
-              <div>
-                <p className="text-xs text-bark-300">主訴</p>
-                <p className="mt-0.5 text-bark-600">{latest_visit.chief_complaint || '—'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-bark-300">診斷</p>
-                <p className="mt-0.5 text-bark-600">{latest_visit.diagnosis || '—'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-bark-300">醫生評估</p>
-                <p className="mt-0.5 text-bark-600">{latest_visit.assessment || '—'}</p>
-              </div>
-              {latest_visit.rehab_decision && (
-                <p className="text-xs text-bark-400">
-                  醫療決策：
-                  <span className="font-medium text-clay-600">
-                    {rehabDecisionLabel[latest_visit.rehab_decision] ??
-                      latest_visit.rehab_decision}
-                  </span>
-                </p>
-              )}
-            </div>
-          ) : (
-            <EmptyState message="尚無看診紀錄" />
-          )}
-        </section>
-
-        <PlanCardSection detail={detail} compact />
-      </div>
+      <PlanCardSection detail={detail} compact />
     </div>
   )
 }
