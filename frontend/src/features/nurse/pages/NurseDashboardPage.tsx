@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { AlertCircle, CheckCircle2, MonitorPlay, TrendingDown, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -9,22 +9,23 @@ import { PageTransition, staggerContainer } from '../../../components/ui/PageTra
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { SummaryCard } from '../../../components/ui/SummaryCard'
 import { useAuth } from '../../../contexts/AuthContext'
+import { usePollingReload } from '../../../hooks/usePollingReload'
 import type { NurseDashboard } from '../../../types'
-import {
-  formatDateTime,
-  greeting,
-  scoreColor,
-  submissionStatusLabel,
-  todayHeading,
-} from '../../../utils/format'
+import { formatDateTime, greeting, scoreColor, todayHeading } from '../../../utils/format'
+import { statusLabel } from '../../../utils/submissionStatus'
 
 export function NurseDashboardPage() {
   const { user } = useAuth()
   const [data, setData] = useState<NurseDashboard | null>(null)
 
+  const reload = useCallback(() => getDashboard().then(setData), [])
+
   useEffect(() => {
-    getDashboard().then(setData)
-  }, [])
+    reload()
+  }, [reload])
+
+  // 有影片在演算法管線時輪詢，分析完成自動進入待審核佇列
+  usePollingReload(reload, (data?.summary.analyzing_count ?? 0) > 0)
 
   if (!data) return <Loading />
 
@@ -120,8 +121,8 @@ export function NurseDashboardPage() {
                       </span>
                     )}
                     <StatusBadge
-                      status={sub.status}
-                      label={submissionStatusLabel[sub.status] ?? sub.status}
+                      status={sub.display_status}
+                      label={statusLabel(sub.display_status)}
                     />
                     {sub.needs_attention && <StatusBadge status="NEEDS_ATTENTION" label="分數異常" />}
                   </div>

@@ -60,12 +60,6 @@ export const rehabStatusLabel: Record<string, string> = {
   CANCELLED: '已取消',
 }
 
-export const submissionStatusLabel: Record<string, string> = {
-  ANALYZING: '演算法分析中',
-  PENDING_REVIEW: '待審核',
-  REVIEWED: '已審核',
-}
-
 export const decisionLabel: Record<string, string> = {
   APPROVED: '通過',
   NEEDS_ATTENTION: '需注意',

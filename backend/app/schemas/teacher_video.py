@@ -57,5 +57,6 @@ class SubmissionStatusOut(BaseModel):
     id: int
     status: str  # ANALYZING | PENDING_REVIEW | REVIEWED
     analysis_status: str  # PENDING | TRANSCODING | EXTRACTING | COMPARING | DONE | FAILED
+    display_status: str  # 統一顯示狀態（見 common.submission_display_status）
     analysis_error: str | None = None
     overall_score: float | None = None

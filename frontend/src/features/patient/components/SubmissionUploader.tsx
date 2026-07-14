@@ -4,15 +4,7 @@ import { toast } from 'sonner'
 import { apiErrorMessage } from '../../../api/client'
 import { getSubmissionProgress, uploadSubmission } from '../../../api/patient'
 import type { AnalysisPipelineStatus, PlanItem } from '../../../types'
-
-const stageLabel: Record<AnalysisPipelineStatus, string> = {
-  PENDING: '排隊等待分析',
-  TRANSCODING: '影片轉檔中',
-  EXTRACTING: 'AI 姿態分析中',
-  COMPARING: '與導師影片比對中',
-  DONE: '分析完成',
-  FAILED: '分析失敗',
-}
+import { statusLabel } from '../../../utils/submissionStatus'
 
 interface Props {
   planId: number
@@ -80,7 +72,7 @@ export function SubmissionUploader({ planId, item, onFinished }: Props) {
   if (trackingId && stage) {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-clay-50 px-3 py-1.5 text-xs text-clay-600">
-        <Loader2 size={13} className="animate-spin" /> {stageLabel[stage]}
+        <Loader2 size={13} className="animate-spin" /> {statusLabel(stage, 'patient')}
       </span>
     )
   }

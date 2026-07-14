@@ -148,6 +148,7 @@ export interface SubmissionListItem {
   item_name: string
   submitted_at: string
   status: SubmissionStatus
+  display_status: DisplayStatus
   decision: ReviewDecision | null
   overall_score: number | null
   needs_attention: boolean
@@ -180,6 +181,7 @@ export interface SubmissionDetail {
   duration_seconds: number | null
   video_url: string | null
   status: SubmissionStatus
+  display_status: DisplayStatus
   analysis_status: AnalysisPipelineStatus
   analysis_error: string | null
   teacher_video_id: number | null
@@ -337,6 +339,8 @@ export type AnalysisPipelineStatus =
   | 'COMPARING'
   | 'DONE'
   | 'FAILED'
+/** 後端預算好的統一顯示狀態（FAILED > 管線階段 > 業務狀態） */
+export type DisplayStatus = AnalysisPipelineStatus | 'PENDING_REVIEW' | 'REVIEWED'
 
 /** plan item 上綁定的導師影片狀態摘要 */
 export interface PlanItemTeacherVideo {
@@ -385,6 +389,7 @@ export interface SubmissionProgress {
   id: number
   status: SubmissionStatus
   analysis_status: AnalysisPipelineStatus
+  display_status: DisplayStatus
   analysis_error: string | null
   overall_score: number | null
 }
@@ -502,6 +507,7 @@ export interface NurseDashboard {
     reviewed_today_count: number
     attention_patient_count: number
     my_patient_count: number
+    analyzing_count: number
   }
   review_queue: SubmissionListItem[]
   attention_items: AttentionItem[]
@@ -601,6 +607,7 @@ export interface PortalSubmission {
   item_name: string
   submitted_at: string
   status: SubmissionStatus
+  display_status: DisplayStatus
   analysis_status: AnalysisPipelineStatus
   analysis_error: string | null
   decision: ReviewDecision | null

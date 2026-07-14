@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AlertTriangle, ArrowLeft, Check, Cpu } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -14,12 +14,14 @@ import {
   reanalyzeSubmission,
 } from '../../../api/nurse'
 import { fetchPose3d } from '../../../api/pose'
+import { usePollingReload } from '../../../hooks/usePollingReload'
 import { Button } from '../../../components/ui/button'
 import { Loading } from '../../../components/ui/Loading'
 import { PageTransition } from '../../../components/ui/PageTransition'
 import { ScoreTrendChart } from '../../../components/ui/ScoreTrendChart'
 import type { ActionCard, AnalysisData, CurvePoint, SubmissionDetail } from '../../../types'
 import type { NpyArray } from '../../../utils/npy'
+import { isPipelineActive, statusLabel } from '../../../utils/submissionStatus'
 import { ActionBreakdown } from '../components/review/ActionBreakdown'
 import { AiReportCard } from '../components/review/AiReportCard'
 import { AnalysisPanel } from '../components/review/AnalysisPanel'
@@ -48,7 +50,7 @@ export function SubmissionReviewPage({ readOnly = false }: Props) {
   const videoHandleRef = useRef<ComparisonVideoHandle>(null)
   const videoSectionRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
+  const loadAll = useCallback(() => {
     if (!submissionId) return
     const loadSubmission = readOnly ? getDoctorSubmission : getNurseSubmission
     const loadAnalysisData = readOnly ? getDoctorAnalysisData : getNurseAnalysisData
@@ -60,6 +62,13 @@ export function SubmissionReviewPage({ readOnly = false }: Props) {
       .then(setPose)
       .catch(() => setPose(null))
   }, [submissionId, readOnly])
+
+  useEffect(() => {
+    loadAll()
+  }, [loadAll])
+
+  // 演算法還在跑時輪詢，完成後自動長出完整審核畫面
+  usePollingReload(loadAll, !!data && isPipelineActive(data.display_status))
 
   if (!data) return <Loading />
 
@@ -173,7 +182,7 @@ export function SubmissionReviewPage({ readOnly = false }: Props) {
         ) : (
           <div className="card flex items-center gap-3 p-6 text-sm text-bark-500">
             <Cpu size={18} className="animate-breathe text-clay-500" />
-            演算法分析中（{data.analysis_status}），完成後即可審核。
+            {statusLabel(data.display_status)}，分析完成後即可審核。
           </div>
         )}
 

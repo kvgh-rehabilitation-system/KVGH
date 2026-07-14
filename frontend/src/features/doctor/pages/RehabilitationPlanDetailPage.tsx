@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowLeft, ChevronDown, ChevronRight, ListChecks, PencilLine, XCircle } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -15,6 +15,7 @@ import { Loading } from '../../../components/ui/Loading'
 import { PageTransition } from '../../../components/ui/PageTransition'
 import { ScoreTrendChart } from '../../../components/ui/ScoreTrendChart'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
+import { usePollingReload } from '../../../hooks/usePollingReload'
 import type { PlanDetail, PlanSubmissionsView, PlanVersion } from '../../../types'
 import {
   decisionLabel,
@@ -22,8 +23,8 @@ import {
   formatDateTime,
   rehabStatusLabel,
   scoreColor,
-  submissionStatusLabel,
 } from '../../../utils/format'
+import { isPipelineActive, statusLabel } from '../../../utils/submissionStatus'
 
 interface Props {
   role?: 'doctor' | 'nurse'
@@ -37,14 +38,25 @@ export function RehabilitationPlanDetailPage({ role = 'doctor' }: Props) {
   const [error, setError] = useState('')
   const [confirmClose, setConfirmClose] = useState(false)
 
+  const reloadSubs = useCallback(() => {
+    if (!planId) return
+    const loadSubmissions = role === 'doctor' ? getDoctorPlanSubmissions : getNursePlanSubmissions
+    return loadSubmissions(planId).then(setSubs)
+  }, [planId, role])
+
   useEffect(() => {
     if (planId) {
       const loadPlan = role === 'doctor' ? getDoctorPlan : getNursePlan
-      const loadSubmissions = role === 'doctor' ? getDoctorPlanSubmissions : getNursePlanSubmissions
       loadPlan(planId).then(setPlan)
-      loadSubmissions(planId).then(setSubs)
+      reloadSubs()
     }
-  }, [planId, role])
+  }, [planId, role, reloadSubs])
+
+  // 有影片在演算法管線時輪詢上傳紀錄（不重抓計畫本體）
+  usePollingReload(
+    reloadSubs,
+    !!subs && subs.submissions.some((s) => isPipelineActive(s.display_status)),
+  )
 
   if (!plan) return <Loading />
 
@@ -251,7 +263,7 @@ export function RehabilitationPlanDetailPage({ role = 'doctor' }: Props) {
                         <td className="px-4 py-3.5 font-semibold tabular-nums" style={submission.overall_score !== null ? { color: scoreColor(submission.overall_score) } : undefined}>
                           {submission.overall_score !== null ? Math.round(submission.overall_score) : '—'}
                         </td>
-                        <td className="px-4 py-3.5"><StatusBadge status={submission.status} label={submissionStatusLabel[submission.status]} /></td>
+                        <td className="px-4 py-3.5"><StatusBadge status={submission.display_status} label={statusLabel(submission.display_status)} /></td>
                         <td className="px-4 py-3.5">{submission.decision ? <StatusBadge status={submission.decision} label={decisionLabel[submission.decision]} /> : <span className="text-bark-300">—</span>}</td>
                         <td className="px-4 py-3.5 text-bark-300"><ChevronRight size={15} /></td>
                       </tr>

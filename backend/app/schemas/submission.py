@@ -45,6 +45,7 @@ class SubmissionListItem(BaseModel):
     item_name: str
     submitted_at: datetime
     status: str  # ANALYZING | PENDING_REVIEW | REVIEWED
+    display_status: str  # PENDING|TRANSCODING|EXTRACTING|COMPARING|DONE|FAILED|PENDING_REVIEW|REVIEWED
     decision: str | None = None  # APPROVED | NEEDS_ATTENTION
     overall_score: float | None = None
     needs_attention: bool = False  # 分數偏低或連續下滑
@@ -77,6 +78,7 @@ class SubmissionDetailOut(BaseModel):
     duration_seconds: int | None = None
     video_url: str | None = None
     status: str
+    display_status: str = "PENDING"
     analysis_status: str = "PENDING"
     analysis_error: str | None = None
     teacher_video_id: int | None = None

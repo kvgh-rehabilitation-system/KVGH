@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { AlertCircle, CheckCircle2, Cpu, MonitorPlay } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -11,20 +11,15 @@ import { PageTransition, staggerContainer } from '../../../components/ui/PageTra
 import { SearchBar } from '../../../components/ui/SearchBar'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { SummaryCard } from '../../../components/ui/SummaryCard'
+import { usePollingReload } from '../../../hooks/usePollingReload'
 import type { SubmissionListResponse } from '../../../types'
-import {
-  decisionLabel,
-  formatDateTime,
-  scoreColor,
-  submissionStatusLabel,
-} from '../../../utils/format'
+import { decisionLabel, formatDateTime, scoreColor } from '../../../utils/format'
+import { statusLabel, submissionStatusFilterLabel } from '../../../utils/submissionStatus'
 
-const statusFilters = [
-  { key: 'ALL', label: '全部' },
-  { key: 'PENDING_REVIEW', label: '待審核' },
-  { key: 'ANALYZING', label: '分析中' },
-  { key: 'REVIEWED', label: '已審核' },
-]
+const statusFilters = ['ALL', 'PENDING_REVIEW', 'ANALYZING', 'REVIEWED'].map((key) => ({
+  key,
+  label: submissionStatusFilterLabel[key],
+}))
 
 const decisionFilters = [
   { key: 'ALL', label: '全部' },
@@ -38,14 +33,23 @@ export function SubmissionQueuePage() {
   const [decision, setDecision] = useState('ALL')
   const [search, setSearch] = useState('')
 
+  const reload = useCallback(
+    () =>
+      listSubmissions({
+        status: status === 'ALL' ? undefined : status,
+        decision: decision === 'ALL' ? undefined : decision,
+        search: search || undefined,
+      }).then(setData),
+    [status, decision, search],
+  )
+
   useEffect(() => {
-    setData(null)
-    listSubmissions({
-      status: status === 'ALL' ? undefined : status,
-      decision: decision === 'ALL' ? undefined : decision,
-      search: search || undefined,
-    }).then(setData)
-  }, [status, decision, search])
+    setData(null) // 篩選變更時清空重載；輪詢走 reload 不清空
+    reload()
+  }, [reload])
+
+  // 有影片在演算法管線時輪詢，分析完成自動翻狀態
+  usePollingReload(reload, (data?.summary.analyzing_count ?? 0) > 0)
 
   return (
     <PageTransition>
@@ -65,7 +69,7 @@ export function SubmissionQueuePage() {
             tone="amber"
           />
           <SummaryCard
-            label="演算法分析中"
+            label={submissionStatusFilterLabel.ANALYZING}
             value={data.summary.analyzing_count}
             icon={Cpu}
             tone="clay"
@@ -167,6 +171,8 @@ export function SubmissionQueuePage() {
                           {Math.round(sub.overall_score)}
                           <span className="ml-0.5 text-xs font-normal text-bark-300">分</span>
                         </span>
+                      ) : sub.display_status === 'FAILED' ? (
+                        <span className="text-xs text-bark-300">—</span>
                       ) : (
                         <span className="text-xs text-bark-300">分析中…</span>
                       )}
@@ -174,8 +180,8 @@ export function SubmissionQueuePage() {
                     <td className="px-5 py-3.5">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <StatusBadge
-                          status={sub.status}
-                          label={submissionStatusLabel[sub.status] ?? sub.status}
+                          status={sub.display_status}
+                          label={statusLabel(sub.display_status)}
                         />
                         {sub.decision && (
                           <StatusBadge
@@ -189,8 +195,8 @@ export function SubmissionQueuePage() {
                       </div>
                     </td>
                     <td className="px-5 py-3.5 text-right">
-                      {sub.status === 'ANALYZING' ? (
-                        <span className="text-xs text-bark-300">等待演算法</span>
+                      {sub.status === 'ANALYZING' && sub.display_status !== 'FAILED' ? (
+                        <span className="text-xs text-bark-300">分析中</span>
                       ) : (
                         <Link
                           to={`/nurse/submissions/${sub.id}`}

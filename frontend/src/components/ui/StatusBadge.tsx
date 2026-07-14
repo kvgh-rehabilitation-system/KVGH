@@ -45,6 +45,7 @@ const pulseDot: Record<string, string> = {
   ANALYZING: 'bg-clay-500',
   PENDING_DOCTOR_REVIEW: 'bg-[#A87A24]',
   WAITING: 'bg-[#A87A24]',
+  PENDING: 'bg-bark-300',
   TRANSCODING: 'bg-clay-500',
   EXTRACTING: 'bg-clay-500',
   COMPARING: 'bg-clay-500',

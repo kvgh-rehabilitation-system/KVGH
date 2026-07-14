@@ -188,6 +188,16 @@ def submission_needs_attention(sub: VideoSubmission, history: list[VideoSubmissi
     return False
 
 
+def submission_display_status(sub: VideoSubmission) -> str:
+    """單一顯示狀態：FAILED > 管線階段（分析中）> 業務狀態。
+    值域：PENDING|TRANSCODING|EXTRACTING|COMPARING|DONE|FAILED|PENDING_REVIEW|REVIEWED"""
+    if sub.analysis_status == "FAILED":
+        return "FAILED"
+    if sub.status == "ANALYZING":
+        return sub.analysis_status
+    return sub.status
+
+
 def submission_to_list_item(
     sub: VideoSubmission, history: list[VideoSubmission] | None = None
 ) -> SubmissionListItem:
@@ -201,6 +211,7 @@ def submission_to_list_item(
         item_name=sub.plan_item.name,
         submitted_at=sub.submitted_at,
         status=sub.status,
+        display_status=submission_display_status(sub),
         decision=sub.decision,
         overall_score=sub.analysis.overall_score if sub.analysis else None,
         needs_attention=submission_needs_attention(sub, history),

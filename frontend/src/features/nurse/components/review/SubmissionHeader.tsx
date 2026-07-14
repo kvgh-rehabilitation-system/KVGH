@@ -2,12 +2,8 @@ import { Eye } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { StatusBadge } from '../../../../components/ui/StatusBadge'
 import type { SubmissionDetail } from '../../../../types'
-import {
-  decisionLabel,
-  formatDateTime,
-  genderLabel,
-  submissionStatusLabel,
-} from '../../../../utils/format'
+import { decisionLabel, formatDateTime, genderLabel } from '../../../../utils/format'
+import { statusLabel } from '../../../../utils/submissionStatus'
 
 /** 審核頁標頭：動作名稱、狀態、病患與計畫資訊 */
 export function SubmissionHeader({
@@ -24,8 +20,8 @@ export function SubmissionHeader({
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="font-display text-2xl font-semibold text-bark-700">{data.item.name}</h1>
         <StatusBadge
-          status={data.status}
-          label={submissionStatusLabel[data.status] ?? data.status}
+          status={data.display_status}
+          label={statusLabel(data.display_status)}
         />
         {data.decision && (
           <StatusBadge status={data.decision} label={decisionLabel[data.decision]} />

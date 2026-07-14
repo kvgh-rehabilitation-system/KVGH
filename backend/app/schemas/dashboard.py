@@ -53,6 +53,7 @@ class NurseDashboardSummary(BaseModel):
     reviewed_today_count: int
     attention_patient_count: int
     my_patient_count: int
+    analyzing_count: int = 0  # 演算法處理中的上傳（前端輪詢條件）
 
 
 class AttentionItem(BaseModel):

@@ -13,8 +13,10 @@ import { ScoreTrendChart } from '../../../components/ui/ScoreTrendChart'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { VideoPlaceholder } from '../../../components/ui/VideoPlaceholder'
 import { VideoPlayer } from '../../../components/ui/VideoPlayer'
+import { usePollingReload } from '../../../hooks/usePollingReload'
 import type { PortalPlanDetail } from '../../../types'
-import { decisionLabel, formatDate, formatDateTime, rehabStatusLabel, scoreColor, submissionStatusLabel } from '../../../utils/format'
+import { decisionLabel, formatDate, formatDateTime, rehabStatusLabel, scoreColor } from '../../../utils/format'
+import { isPipelineActive, statusLabel } from '../../../utils/submissionStatus'
 import { SubmissionUploader } from '../components/SubmissionUploader'
 
 export function PortalPlanDetailPage() {
@@ -28,6 +30,12 @@ export function PortalPlanDetailPage() {
   useEffect(() => {
     reload()
   }, [reload])
+
+  // 有影片還在演算法管線時輪詢，分析完成自動更新
+  usePollingReload(
+    reload,
+    !!plan && plan.submissions.some((s) => isPipelineActive(s.display_status)),
+  )
 
   if (!plan) return <Loading />
 
@@ -134,7 +142,7 @@ export function PortalPlanDetailPage() {
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="font-medium text-bark-700">{submission.item_name}</h3>
-                    <StatusBadge status={submission.status} label={submissionStatusLabel[submission.status]} />
+                    <StatusBadge status={submission.display_status} label={statusLabel(submission.display_status, 'patient')} />
                     {submission.decision && <StatusBadge status={submission.decision} label={decisionLabel[submission.decision]} />}
                   </div>
                   <p className="mt-1 text-xs text-bark-400">{formatDateTime(submission.submitted_at)}</p>
@@ -149,10 +157,10 @@ export function PortalPlanDetailPage() {
                 <div className="flex min-w-28 items-center justify-end gap-2">
                   {submission.overall_score !== null ? (
                     <><CheckCircle2 size={18} style={{ color: scoreColor(submission.overall_score) }} /><strong className="text-2xl tabular-nums" style={{ color: scoreColor(submission.overall_score) }}>{Math.round(submission.overall_score)}</strong><span className="text-xs text-bark-300">分</span></>
-                  ) : submission.analysis_status === 'FAILED' ? (
+                  ) : submission.display_status === 'FAILED' ? (
                     <span className="text-xs text-rust" title={submission.analysis_error ?? undefined}>分析失敗</span>
                   ) : (
-                    <span className="inline-flex items-center gap-1.5 text-xs text-bark-300"><Loader2 size={12} className="animate-spin" /> 分析中</span>
+                    <span className="inline-flex items-center gap-1.5 text-xs text-bark-300"><Loader2 size={12} className="animate-spin" /> {statusLabel(submission.display_status, 'patient')}</span>
                   )}
                 </div>
               </motion.article>

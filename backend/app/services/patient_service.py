@@ -158,6 +158,7 @@ def _submission_for_patient(sub: VideoSubmission) -> dict:
         "item_name": sub.plan_item.name,
         "submitted_at": sub.submitted_at.isoformat(),
         "status": sub.status,
+        "display_status": common.submission_display_status(sub),
         "analysis_status": sub.analysis_status,
         "analysis_error": sub.analysis_error,
         "decision": sub.decision,
@@ -235,6 +236,7 @@ def get_submission_status(db: Session, user: User, submission_id: int) -> Submis
         id=sub.id,
         status=sub.status,
         analysis_status=sub.analysis_status,
+        display_status=common.submission_display_status(sub),
         analysis_error=sub.analysis_error,
         overall_score=sub.analysis.overall_score if sub.analysis else None,
     )

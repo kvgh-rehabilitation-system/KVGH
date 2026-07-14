@@ -10,12 +10,16 @@ import { Loading } from '../../../components/ui/Loading'
 import { PageHeader } from '../../../components/ui/PageHeader'
 import { PageTransition } from '../../../components/ui/PageTransition'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
+import { usePollingReload } from '../../../hooks/usePollingReload'
 import type { AdminTaskList } from '../../../types'
 import { formatDateTime } from '../../../utils/format'
-import { analysisStatusLabel, IN_PROGRESS_STATUSES } from '../labels'
+import {
+  displayStatusLabel,
+  PIPELINE_ACTIVE_STATUSES,
+  statusLabel,
+} from '../../../utils/submissionStatus'
 
 const PAGE_SIZE = 20
-const POLL_MS = 10_000
 
 export function AdminTasksPage() {
   const [data, setData] = useState<AdminTaskList | null>(null)
@@ -37,17 +41,10 @@ export function AdminTasksPage() {
 
   // 有任務在跑時輪詢刷新
   const hasInProgress = useMemo(
-    () =>
-      !!data &&
-      (IN_PROGRESS_STATUSES.some((s) => (data.status_counts[s] ?? 0) > 0) ||
-        (data.status_counts['PENDING'] ?? 0) > 0),
+    () => !!data && PIPELINE_ACTIVE_STATUSES.some((s) => (data.status_counts[s] ?? 0) > 0),
     [data],
   )
-  useEffect(() => {
-    if (!hasInProgress) return
-    const timer = setInterval(reload, POLL_MS)
-    return () => clearInterval(timer)
-  }, [hasInProgress, reload])
+  usePollingReload(reload, hasInProgress)
 
   const filters = useMemo(() => {
     const counts = data?.status_counts ?? {}
@@ -56,7 +53,7 @@ export function AdminTasksPage() {
       { key: 'ALL', label: `全部 ${total}` },
       ...(['PENDING', 'TRANSCODING', 'EXTRACTING', 'COMPARING', 'DONE', 'FAILED'] as const)
         .filter((s) => (counts[s] ?? 0) > 0 || s === 'DONE' || s === 'FAILED')
-        .map((s) => ({ key: s, label: `${analysisStatusLabel[s]} ${counts[s] ?? 0}` })),
+        .map((s) => ({ key: s, label: `${displayStatusLabel[s]} ${counts[s] ?? 0}` })),
     ]
   }, [data])
 
@@ -132,7 +129,7 @@ export function AdminTasksPage() {
                     <td className="px-5 py-3.5">
                       <StatusBadge
                         status={t.analysis_status}
-                        label={analysisStatusLabel[t.analysis_status] ?? t.analysis_status}
+                        label={statusLabel(t.analysis_status)}
                       />
                     </td>
                     <td className="max-w-[16rem] px-5 py-3.5">
