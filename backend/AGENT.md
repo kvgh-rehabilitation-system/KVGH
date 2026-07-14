@@ -1,0 +1,28 @@
+# KVGH 後端
+
+FastAPI + SQLAlchemy 2.0 + PostgreSQL（`DATABASE_URL` 注入；本機 fallback SQLite）。
+
+## 分層
+
+`app/{core,db,models,schemas,services,api}`：router 只做參數綁定與權限依賴（`require_nurse` 等），邏輯在 services，序列化統一走 `services/common.py` 的 `*_to_out`。
+
+## 媒體串流
+
+- **沒有 StaticFiles mount**。所有媒體走 `api/routers/media.py`：影片用 `media_service.stream_video`（HTTP Range/206 邊播邊緩衝），小檔（.npy）用 `media_service.send_file`（FileResponse）
+- 路徑一律經 `media_service.abs_path()` 防跳脫；DB 只存相對 MEDIA_ROOT 的路徑
+- 認證 `get_user_flexible`：Bearer header 或 `?token=` query（`<video>` 標籤用）
+
+## 分析資料契約
+
+- `AnalysisResult.metrics` 是 JSON 直通欄位（`analysis_to_out` 原樣帶出）。**`ai_report` 藏在 `metrics["ai_report"]`**，schema 加欄免 migration——未來 LLM worker 只要寫這個 key
+- `summary_text` 是演算法規則式輸出（`algorithm/humanpose_api.py`），不是護理師評論（那是 `VideoSubmission.feedback`）
+- `services/analysis_data_service.py`：審核頁儀表板 payload（動作卡/相似度曲線/關節偏差序列，各影片跳轉秒數皆後端預算）。**快取契約**：首次算完寫 `results/{id}/dashboard.json`；`scores.json` mtime 更新（重新分析）或 `VERSION` 提升即重算。改 payload 結構或幀映射邏輯必須 `VERSION` +1
+- 幀映射常數 `OUTPUT_FPS=30`、`HOLD_FRAMES=60` 對應 `humanpose_api.py` 的影片合成寫死值，兩邊要同步（詳見根目錄 CLAUDE.md）
+
+## Seed 注意
+
+`app/seed.py` 造的 submission 是 `analysis_status='DONE'` 但**磁碟無任何檔案**（無 .npy、無 results/）：pose3d 與 analysis-data 對 seed 資料回 404 是預期行為，前端會降級。日期以 TODAY 相對計算，重跑 seed 永遠有今日資料。
+
+## 部署
+
+程式碼打進 image（無 bind mount）。迭代小改：`docker cp backend/app/... kvgh-backend:/app/app/...` + `docker restart kvgh-backend`；收尾一次乾淨 rebuild。
