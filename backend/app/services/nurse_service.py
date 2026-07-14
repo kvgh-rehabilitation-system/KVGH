@@ -444,7 +444,7 @@ def add_plan_item(db: Session, plan_id: int, data: PlanItemCreate) -> dict:
     if plan.status not in common.ACTIVE_PLAN_STATUSES:
         raise HTTPException(status_code=400, detail="計畫已結束，無法新增動作")
     if data.teacher_video_id is not None:
-        _get_selectable_teacher_video(db, data.teacher_video_id)
+        common.get_selectable_teacher_video(db, data.teacher_video_id)
     item = PlanItem(version_id=current.id, **data.model_dump())
     db.add(item)
     db.commit()
@@ -458,7 +458,7 @@ def update_plan_item(db: Session, plan_id: int, item_id: int, data: PlanItemUpda
         raise HTTPException(status_code=404, detail="動作項目不存在")
     changes = data.model_dump(exclude_unset=True)
     if changes.get("teacher_video_id") is not None:
-        _get_selectable_teacher_video(db, changes["teacher_video_id"])
+        common.get_selectable_teacher_video(db, changes["teacher_video_id"])
     for field, value in changes.items():
         setattr(item, field, value)
     db.commit()
@@ -542,16 +542,6 @@ def create_teacher_video(
     db.commit()
     task_queue.enqueue_teacher_pipeline(tv.id)
     return teacher_video_to_out(tv)
-
-
-def _get_selectable_teacher_video(db: Session, teacher_video_id: int) -> TeacherVideo:
-    """驗證影片庫的影片可被動作選用（存在且已完成萃取）。"""
-    tv = get_teacher_video_or_404(db, teacher_video_id)
-    if tv.extraction_status != "EXTRACTED":
-        raise HTTPException(
-            status_code=400, detail="導師影片尚未完成 2D/3D 萃取，無法選用"
-        )
-    return tv
 
 
 def upload_teacher_video(

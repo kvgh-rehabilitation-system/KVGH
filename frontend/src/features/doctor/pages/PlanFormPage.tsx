@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, Film, Plus, Trash2 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { apiErrorMessage } from '../../../api/client'
 import {
@@ -14,13 +14,25 @@ import {
 import { Loading } from '../../../components/ui/Loading'
 import { PageHeader } from '../../../components/ui/PageHeader'
 import { PageTransition } from '../../../components/ui/PageTransition'
-import type { PlanItemInput } from '../../../types'
+import type { PlanItemInput, PlanItemTeacherVideo } from '../../../types'
 
 interface Props {
   mode: 'create' | 'adjust'
 }
 
-const emptyItem: PlanItemInput = { name: '', frequency: '', description: '', precaution: '' }
+/** 表單列 = 送出欄位 + 顯示用導師影片資訊（護理師綁定，醫生端唯讀沿用） */
+type FormItem = PlanItemInput & { teacherVideo?: PlanItemTeacherVideo | null }
+
+const emptyItem: FormItem = {
+  name: '',
+  frequency: '',
+  times_per_week: 3,
+  description: '',
+  precaution: '',
+  example_video_url: null,
+  example_video_note: null,
+  teacher_video_id: null,
+}
 
 /** 建立 / 調整復健計畫共用表單 */
 export function PlanFormPage({ mode }: Props) {
@@ -34,7 +46,7 @@ export function PlanFormPage({ mode }: Props) {
 
   const [name, setName] = useState('')
   const [goals, setGoals] = useState<string[]>([''])
-  const [items, setItems] = useState<PlanItemInput[]>([{ ...emptyItem }])
+  const [items, setItems] = useState<FormItem[]>([{ ...emptyItem }])
   const [nurseId, setNurseId] = useState<number | ''>('')
   const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [evaluationDate, setEvaluationDate] = useState('')
@@ -63,8 +75,13 @@ export function PlanFormPage({ mode }: Props) {
               ? current.items.map((i) => ({
                   name: i.name,
                   frequency: i.frequency ?? '',
+                  times_per_week: i.times_per_week,
                   description: i.description ?? '',
                   precaution: i.precaution ?? '',
+                  example_video_url: i.example_video_url,
+                  example_video_note: i.example_video_note,
+                  teacher_video_id: i.teacher_video?.id ?? null,
+                  teacherVideo: i.teacher_video ?? null,
                 }))
               : [{ ...emptyItem }],
           )
@@ -80,7 +97,7 @@ export function PlanFormPage({ mode }: Props) {
   const backTo =
     mode === 'create' ? `/doctor/patients/${patientId}` : `/doctor/rehabilitation-plans/${planId}`
 
-  const updateItem = (index: number, field: keyof PlanItemInput, value: string) => {
+  const updateItem = (index: number, field: keyof PlanItemInput, value: string | number) => {
     setItems((prev) => prev.map((item, i) => (i === index ? { ...item, [field]: value } : item)))
   }
 
@@ -88,7 +105,9 @@ export function PlanFormPage({ mode }: Props) {
     e.preventDefault()
     setError('')
     const cleanGoals = goals.map((g) => g.trim()).filter(Boolean)
-    const cleanItems = items.filter((i) => i.name.trim())
+    const cleanItems: PlanItemInput[] = items
+      .filter((i) => i.name.trim())
+      .map(({ teacherVideo: _tv, ...fields }) => fields)
     if (cleanGoals.length === 0) return setError('請至少填寫一項復健目標')
     if (cleanItems.length === 0) return setError('請至少填寫一個復健項目')
 
@@ -302,6 +321,29 @@ export function PlanFormPage({ mode }: Props) {
                     value={item.precaution ?? ''}
                     onChange={(e) => updateItem(i, 'precaution', e.target.value)}
                   />
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+                  <label className="flex items-center gap-2 text-xs text-bark-400">
+                    每週次數（計入完成率）
+                    <input
+                      type="number"
+                      min={1}
+                      max={14}
+                      className="input w-20"
+                      value={item.times_per_week ?? 3}
+                      onChange={(e) => updateItem(i, 'times_per_week', Number(e.target.value))}
+                    />
+                  </label>
+                  {item.teacherVideo && (
+                    <span
+                      className="inline-flex items-center gap-1.5 rounded-full bg-sage-100 px-3 py-1.5 text-xs text-sage-700"
+                      title="導師影片由治療人員管理，會跟隨此項目沿用至新版本"
+                    >
+                      <Film size={13} />
+                      導師影片：{item.teacherVideo.name ?? `#${item.teacherVideo.id}`}
+                      <span className="text-sage-700/60">（沿用至新版本）</span>
+                    </span>
+                  )}
                 </div>
                 {items.length > 1 && (
                   <button

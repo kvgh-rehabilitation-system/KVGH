@@ -370,20 +370,22 @@ def adjust_plan(db: Session, plan_id: int, data: PlanAdjust) -> RehabPlan:
     )
     db.add(new_version)
     db.flush()
-    # 同名動作沿用前一版的導師影片（萃取/標註產物跨版本重用，不需重算）
-    prev_teacher_videos = (
-        {i.name: i.teacher_video_id for i in current.items if i.teacher_video_id}
-        if current
-        else {}
-    )
+    # 導師影片沿用（萃取/標註產物跨版本重用，不需重算）：
+    # 前端顯式帶 teacher_video_id 時以它為準（動作改名不斷綁），
+    # 沒帶時 fallback 到前一版同名動作的綁定
+    prev_items = current.items if current else []
+    prev_teacher_videos = {
+        i.name: i.teacher_video_id for i in prev_items if i.teacher_video_id
+    }
+    prev_video_ids = {i.teacher_video_id for i in prev_items if i.teacher_video_id}
     for item in data.items:
-        db.add(
-            PlanItem(
-                version_id=new_version.id,
-                teacher_video_id=prev_teacher_videos.get(item.name),
-                **item.model_dump(),
-            )
-        )
+        payload = item.model_dump()
+        if payload.get("teacher_video_id") is None:
+            payload["teacher_video_id"] = prev_teacher_videos.get(item.name)
+        elif payload["teacher_video_id"] not in prev_video_ids:
+            # 前一版沿用的綁定不重驗（避免舊資料狀態異動擋住調整），新綁定才驗證
+            common.get_selectable_teacher_video(db, payload["teacher_video_id"])
+        db.add(PlanItem(version_id=new_version.id, **payload))
 
     plan.status = "ONGOING"
     if data.evaluation_date:

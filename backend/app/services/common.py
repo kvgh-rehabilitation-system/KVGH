@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.models.patient import Patient
 from app.models.rehab_plan import PlanVersion, RehabPlan
 from app.models.submission import NurseReport, VideoSubmission
+from app.models.teacher_video import TeacherVideo
 from app.models.visit import Visit
 from app.schemas.rehab_plan import (
     PlanCardOut,
@@ -269,3 +270,17 @@ def get_patient_or_404(db: Session, patient_id: int) -> Patient:
     if not patient:
         raise HTTPException(status_code=404, detail="病患不存在")
     return patient
+
+
+def get_selectable_teacher_video(db: Session, teacher_video_id: int) -> TeacherVideo:
+    """驗證影片庫的影片可被動作選用（存在且已完成萃取）。"""
+    from fastapi import HTTPException
+
+    tv = db.get(TeacherVideo, teacher_video_id)
+    if not tv:
+        raise HTTPException(status_code=404, detail="導師影片不存在")
+    if tv.extraction_status != "EXTRACTED":
+        raise HTTPException(
+            status_code=400, detail="導師影片尚未完成 2D/3D 萃取，無法選用"
+        )
+    return tv
