@@ -87,7 +87,7 @@ export function AppLayout({ navItems, roleLabel }: Props) {
       <TooltipProvider delayDuration={150}>
         <motion.aside
           initial={false}
-          animate={{ width: collapsed ? 64 : 240 }}
+          animate={{ width: collapsed ? 72 : 240 }}
           transition={{ type: 'spring', stiffness: 300, damping: 32 }}
           className="flex shrink-0 flex-col overflow-hidden whitespace-nowrap border-r border-sand bg-white/70 backdrop-blur"
         >
@@ -121,14 +121,16 @@ export function AppLayout({ navItems, roleLabel }: Props) {
             </CollapsedTooltip>
           </div>
 
-          <nav className={`flex-1 space-y-1 ${collapsed ? 'px-2.5' : 'px-3'}`}>
+          {collapsed && <div className="mx-4 mb-3 border-t border-sand" />}
+
+          <nav className={`flex-1 ${collapsed ? 'space-y-1.5 px-2.5' : 'space-y-1 px-3'}`}>
             {navItems.map((item) => (
               <CollapsedTooltip key={item.to} enabled={collapsed} label={item.label}>
                 <NavLink
                   to={item.to}
                   className={({ isActive }) =>
                     `group relative flex items-center rounded-xl text-sm font-medium transition-all duration-200 ${
-                      collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3.5 py-2.5'
+                      collapsed ? 'justify-center px-0 py-3' : 'gap-3 px-3.5 py-2.5'
                     } ${
                       isActive
                         ? 'bg-clay-50 text-clay-700'
@@ -141,7 +143,7 @@ export function AppLayout({ navItems, roleLabel }: Props) {
                       {isActive && (
                         <motion.span
                           layoutId="nav-active-bar"
-                          className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-clay-500"
+                          className="absolute inset-y-0 left-0 my-auto h-6 w-1 rounded-r-full bg-clay-500"
                           transition={{ type: 'spring', stiffness: 500, damping: 40 }}
                         />
                       )}
