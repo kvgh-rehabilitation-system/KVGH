@@ -42,3 +42,5 @@ class PatientDetailOut(BaseModel):
     rehab_status: str
     latest_visit: VisitOut | None = None
     current_plan: PlanCardOut | None = None
+    plans: list[PlanCardOut]
+    visits: list[VisitOut]

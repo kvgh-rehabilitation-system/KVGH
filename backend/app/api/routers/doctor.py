@@ -5,6 +5,7 @@ from app.api.deps import require_doctor
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.dashboard import DoctorDashboardOut
+from app.schemas.analysis_data import AnalysisDataOut
 from app.schemas.patient import PatientDetailOut, PatientListItem
 from app.schemas.rehab_plan import (
     NurseOption,
@@ -14,9 +15,9 @@ from app.schemas.rehab_plan import (
     PlanListItem,
     PlanListSummary,
 )
-from app.schemas.submission import DoctorReportReview, NurseReportOut
+from app.schemas.submission import DoctorReportReview, NurseReportOut, SubmissionDetailOut
 from app.schemas.visit import VisitCreate, VisitOut
-from app.services import doctor_service
+from app.services import analysis_data_service, doctor_service, nurse_service
 
 router = APIRouter(prefix="/api/doctor", tags=["doctor"])
 
@@ -49,6 +50,26 @@ def patient_visits(
     patient_id: int, user: User = Depends(require_doctor), db: Session = Depends(get_db)
 ):
     return doctor_service.list_patient_visits(db, patient_id)
+
+@router.get("/submissions/{submission_id}", response_model=SubmissionDetailOut)
+def submission_detail(
+    submission_id: int,
+    user: User = Depends(require_doctor),
+    db: Session = Depends(get_db),
+):
+    return nurse_service.get_submission_detail(db, submission_id)
+
+
+@router.get(
+    "/submissions/{submission_id}/analysis-data", response_model=AnalysisDataOut
+)
+def submission_analysis_data(
+    submission_id: int,
+    user: User = Depends(require_doctor),
+    db: Session = Depends(get_db),
+):
+    return analysis_data_service.get_analysis_data(db, submission_id)
+
 
 
 @router.post("/patients/{patient_id}/visits", status_code=201)

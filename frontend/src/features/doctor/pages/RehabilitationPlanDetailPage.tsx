@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, ChevronDown, PencilLine, XCircle } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, ListChecks, PencilLine, XCircle } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { apiErrorMessage } from '../../../api/client'
-import { closePlan, getPlan, getPlanSubmissions } from '../../../api/doctor'
+import {
+  closePlan,
+  getPlan as getDoctorPlan,
+  getPlanSubmissions as getDoctorPlanSubmissions,
+} from '../../../api/doctor'
+import { getPlan as getNursePlan, getPlanSubmissions as getNursePlanSubmissions } from '../../../api/nurse'
 import { CompletionTrendChart } from '../../../components/ui/CompletionTrendChart'
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { Loading } from '../../../components/ui/Loading'
@@ -20,7 +25,11 @@ import {
   submissionStatusLabel,
 } from '../../../utils/format'
 
-export function RehabilitationPlanDetailPage() {
+interface Props {
+  role?: 'doctor' | 'nurse'
+}
+
+export function RehabilitationPlanDetailPage({ role = 'doctor' }: Props) {
   const { planId } = useParams()
   const navigate = useNavigate()
   const [plan, setPlan] = useState<PlanDetail | null>(null)
@@ -30,10 +39,12 @@ export function RehabilitationPlanDetailPage() {
 
   useEffect(() => {
     if (planId) {
-      getPlan(planId).then(setPlan)
-      getPlanSubmissions(planId).then(setSubs)
+      const loadPlan = role === 'doctor' ? getDoctorPlan : getNursePlan
+      const loadSubmissions = role === 'doctor' ? getDoctorPlanSubmissions : getNursePlanSubmissions
+      loadPlan(planId).then(setPlan)
+      loadSubmissions(planId).then(setSubs)
     }
-  }, [planId])
+  }, [planId, role])
 
   if (!plan) return <Loading />
 
@@ -45,7 +56,7 @@ export function RehabilitationPlanDetailPage() {
     try {
       await closePlan(planId)
       setConfirmClose(false)
-      setPlan(await getPlan(planId))
+      setPlan(await getDoctorPlan(planId))
     } catch (err) {
       setError(apiErrorMessage(err))
     }
@@ -74,7 +85,7 @@ export function RehabilitationPlanDetailPage() {
             <p className="mt-1.5 text-sm text-bark-400">
               病患：
               <Link
-                to={`/doctor/patients/${plan.patient_id}`}
+                to={`/${role}/patients/${plan.patient_id}`}
                 className="font-medium text-clay-600 hover:underline"
               >
                 {plan.patient_name}
@@ -83,7 +94,7 @@ export function RehabilitationPlanDetailPage() {
               {plan.nurse_name ?? '—'}
             </p>
           </div>
-          {isActive && (
+          {isActive && role === 'doctor' && (
             <div className="flex gap-2">
               <Link to={`/doctor/rehabilitation-plans/${plan.id}/adjust`} className="btn-secondary">
                 <PencilLine size={15} /> 調整計畫
@@ -92,6 +103,11 @@ export function RehabilitationPlanDetailPage() {
                 <XCircle size={15} /> 結束計畫
               </button>
             </div>
+          )}
+          {isActive && role === 'nurse' && (
+            <Link to={`/nurse/plans/${plan.id}/items`} className="btn-primary">
+              <ListChecks size={15} /> 動作管理
+            </Link>
           )}
         </div>
 
@@ -220,11 +236,16 @@ export function RehabilitationPlanDetailPage() {
                       <th className="px-4 py-3 font-medium">分數</th>
                       <th className="px-4 py-3 font-medium">分析狀態</th>
                       <th className="px-4 py-3 font-medium">審核判定</th>
+                      <th className="w-10 px-4 py-3" />
                     </tr>
                   </thead>
                   <tbody>
                     {subs.submissions.map((submission) => (
-                      <tr key={submission.id} className="border-b border-sand/70 last:border-0">
+                      <tr
+                        key={submission.id}
+                        onClick={() => navigate(`/${role}/submissions/${submission.id}`)}
+                        className="cursor-pointer border-b border-sand/70 transition-colors last:border-0 hover:bg-parchment/50"
+                      >
                         <td className="px-4 py-3.5 text-bark-500">{formatDateTime(submission.submitted_at)}</td>
                         <td className="px-4 py-3.5 font-medium text-bark-700">{submission.item_name}</td>
                         <td className="px-4 py-3.5 font-semibold tabular-nums" style={submission.overall_score !== null ? { color: scoreColor(submission.overall_score) } : undefined}>
@@ -232,6 +253,7 @@ export function RehabilitationPlanDetailPage() {
                         </td>
                         <td className="px-4 py-3.5"><StatusBadge status={submission.status} label={submissionStatusLabel[submission.status]} /></td>
                         <td className="px-4 py-3.5">{submission.decision ? <StatusBadge status={submission.decision} label={decisionLabel[submission.decision]} /> : <span className="text-bark-300">—</span>}</td>
+                        <td className="px-4 py-3.5 text-bark-300"><ChevronRight size={15} /></td>
                       </tr>
                     ))}
                   </tbody>

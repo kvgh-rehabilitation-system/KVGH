@@ -8,6 +8,8 @@ import type {
   NursePatientDetail,
   NursePatientRow,
   NurseReport,
+  PlanDetail,
+  PlanSubmissionsView,
   NurseReportCreate,
   PlanItemInput,
   PlanItemsView,
@@ -34,6 +36,16 @@ export async function listMyPatients(params: {
 
 export async function getPatient(patientId: number | string) {
   const { data } = await client.get<NursePatientDetail>(`/nurse/patients/${patientId}`)
+  return data
+}
+
+export async function getPlan(planId: number | string) {
+  const { data } = await client.get<PlanDetail>(`/nurse/plans/${planId}`)
+  return data
+}
+
+export async function getPlanSubmissions(planId: number | string) {
+  const { data } = await client.get<PlanSubmissionsView>(`/nurse/plans/${planId}/submissions`)
   return data
 }
 

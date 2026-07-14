@@ -34,10 +34,11 @@ interface Props {
   data: SubmissionDetail
   /** 審核送出成功後呼叫（頁面顯示成功動畫並導回列表） */
   onSuccess: () => void
+  readOnly?: boolean
 }
 
 /** 審核與回饋區：通過／需注意 + 給病患留言 + 回報醫生 */
-export function ReviewSection({ data, onSuccess }: Props) {
+export function ReviewSection({ data, onSuccess, readOnly = false }: Props) {
   const reviewed = data.status === 'REVIEWED'
   const [feedback, setFeedback] = useState(data.feedback ?? '')
   const [decision, setDecision] = useState<ReviewDecision | null>(data.decision)
@@ -90,77 +91,79 @@ export function ReviewSection({ data, onSuccess }: Props) {
   }
 
   return (
-    <section className={`card p-6 ${reviewed ? '' : 'border-clay-200/80 shadow-glow'}`}>
+    <section className={`card p-6 ${reviewed || readOnly ? '' : 'border-clay-200/80 shadow-glow'}`}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-base font-semibold text-bark-700">
-          {reviewed ? '審核結果' : '審核與回饋'}
+          {reviewed ? '審核結果' : readOnly ? '審核狀態' : '審核與回饋'}
         </h2>
-        <Dialog open={reportOpen} onOpenChange={setReportOpen}>
-          <DialogTrigger asChild>
-            <Button variant="secondary" size="sm">
-              <Megaphone size={14} /> 回報醫生
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>回報醫生</DialogTitle>
-              <DialogDescription>
-                針對 {data.patient_name} 的「{data.plan_name}」向主治醫師回報。
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <span className="label">回報類型</span>
-                  <Select value={reportKind} onValueChange={(v) => setReportKind(v as ReportKind)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(reportKindLabel).map(([k, label]) => (
-                        <SelectItem key={k} value={k}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+        {!readOnly && (
+          <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+            <DialogTrigger asChild>
+              <Button variant="secondary" size="sm">
+                <Megaphone size={14} /> 回報醫生
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>回報醫生</DialogTitle>
+                <DialogDescription>
+                  針對 {data.patient_name} 的「{data.plan_name}」向主治醫師回報。
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <span className="label">回報類型</span>
+                    <Select value={reportKind} onValueChange={(v) => setReportKind(v as ReportKind)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(reportKindLabel).map(([k, label]) => (
+                          <SelectItem key={k} value={k}>
+                            {label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <span className="label">嚴重程度</span>
+                    <Select value={reportSeverity} onValueChange={setReportSeverity}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(severityLabel).map(([k, label]) => (
+                          <SelectItem key={k} value={k}>
+                            {label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div>
-                  <span className="label">嚴重程度</span>
-                  <Select value={reportSeverity} onValueChange={setReportSeverity}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(severityLabel).map(([k, label]) => (
-                        <SelectItem key={k} value={k}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <span className="label">回報內容</span>
+                  <Textarea
+                    value={reportContent}
+                    onChange={(e) => setReportContent(e.target.value)}
+                    placeholder="描述病患狀況、分數變化或建議的計畫調整…"
+                    rows={4}
+                  />
                 </div>
               </div>
-              <div>
-                <span className="label">回報內容</span>
-                <Textarea
-                  value={reportContent}
-                  onChange={(e) => setReportContent(e.target.value)}
-                  placeholder="描述病患狀況、分數變化或建議的計畫調整…"
-                  rows={4}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => setReportOpen(false)}>
-                取消
-              </Button>
-              <Button onClick={submitReport} disabled={reporting}>
-                {reporting ? '送出中…' : '送出回報'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setReportOpen(false)}>
+                  取消
+                </Button>
+                <Button onClick={submitReport} disabled={reporting}>
+                  {reporting ? '送出中…' : '送出回報'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       {reviewed ? (
@@ -177,6 +180,10 @@ export function ReviewSection({ data, onSuccess }: Props) {
             </p>
           )}
         </div>
+      ) : readOnly ? (
+        <p className="rounded-xl bg-parchment/60 p-4 text-sm text-bark-400">
+          此影片尚未完成護理審核。
+        </p>
       ) : (
         <div className="space-y-4">
           <div>

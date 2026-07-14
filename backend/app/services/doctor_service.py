@@ -157,7 +157,8 @@ def list_patients(
 
 def get_patient_detail(db: Session, patient_id: int) -> PatientDetailOut:
     patient = common.get_patient_or_404(db, patient_id)
-    completed_visits = [v for v in patient.visits if v.status == "COMPLETED"]
+    completed_visits = common.get_completed_visits(patient)
+    plans = common.get_patient_plans(patient)
     last_visit = common.get_last_visit(patient)
     active_plan = common.get_active_plan(patient)
 
@@ -189,17 +190,15 @@ def get_patient_detail(db: Session, patient_id: int) -> PatientDetailOut:
         ),
         rehab_status=common.get_rehab_status(patient),
         latest_visit=common.visit_to_out(last_visit) if last_visit else None,
-        current_plan=common.plan_to_card(active_plan) if active_plan else None,
+        current_plan=common.plan_to_card(active_plan, db) if active_plan else None,
+        plans=[common.plan_to_card(plan, db) for plan in plans],
+        visits=[common.visit_to_out(visit) for visit in completed_visits],
     )
 
 
 def list_patient_visits(db: Session, patient_id: int) -> list[VisitOut]:
     patient = common.get_patient_or_404(db, patient_id)
-    visits = sorted(
-        [v for v in patient.visits if v.status == "COMPLETED"],
-        key=lambda v: (v.visit_date, v.id),
-        reverse=True,
-    )
+    visits = common.get_completed_visits(patient)
     return [common.visit_to_out(v) for v in visits]
 
 

@@ -71,8 +71,11 @@ class PlanCardOut(BaseModel):
     status: str
     start_date: date
     evaluation_date: date | None = None
+    doctor_name: str
     nurse_name: str | None = None
     current_version: int | None = None
+    item_count: int = 0
+    pending_review_count: int = 0
 
 
 class PlanListItem(BaseModel):

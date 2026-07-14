@@ -70,6 +70,7 @@ class SubmissionDetailOut(BaseModel):
     patient_gender: str
     plan_id: int
     plan_name: str
+    plan_status: str
     plan_version: int
     item: SubmissionItemInfo
     submitted_at: datetime

@@ -80,6 +80,7 @@ export default function App() {
               path="patients/:patientId/rehabilitation-plans/new"
               element={<PlanFormPage mode="create" />}
             />
+            <Route path="submissions/:submissionId" element={<SubmissionReviewPage readOnly />} />
             <Route path="rehabilitation-plans" element={<RehabilitationPlanListPage />} />
             <Route path="rehabilitation-plans/:planId" element={<RehabilitationPlanDetailPage />} />
             <Route
@@ -103,6 +104,7 @@ export default function App() {
             <Route path="submissions" element={<SubmissionQueuePage />} />
             <Route path="submissions/:submissionId" element={<SubmissionReviewPage />} />
             <Route path="plans/:planId/items" element={<PlanItemsPage />} />
+            <Route path="plans/:planId" element={<RehabilitationPlanDetailPage role="nurse" />} />
             <Route path="teacher-videos" element={<TeacherVideoLibraryPage />} />
             <Route
               path="teacher-videos/:teacherVideoId/annotate"

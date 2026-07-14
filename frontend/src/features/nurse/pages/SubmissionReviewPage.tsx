@@ -4,7 +4,15 @@ import { AlertTriangle, ArrowLeft, Check, Cpu } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { apiErrorMessage } from '../../../api/client'
-import { getAnalysisData, getSubmission, reanalyzeSubmission } from '../../../api/nurse'
+import {
+  getAnalysisData as getDoctorAnalysisData,
+  getSubmission as getDoctorSubmission,
+} from '../../../api/doctor'
+import {
+  getAnalysisData as getNurseAnalysisData,
+  getSubmission as getNurseSubmission,
+  reanalyzeSubmission,
+} from '../../../api/nurse'
 import { fetchPose3d } from '../../../api/pose'
 import { Button } from '../../../components/ui/button'
 import { Loading } from '../../../components/ui/Loading'
@@ -24,7 +32,11 @@ import { ReviewSection } from '../components/review/ReviewSection'
 import { SimilarityTimeline } from '../components/review/SimilarityTimeline'
 import { SubmissionHeader } from '../components/review/SubmissionHeader'
 
-export function SubmissionReviewPage() {
+interface Props {
+  readOnly?: boolean
+}
+
+export function SubmissionReviewPage({ readOnly = false }: Props) {
   const { submissionId } = useParams()
   const navigate = useNavigate()
   const [data, setData] = useState<SubmissionDetail | null>(null)
@@ -38,14 +50,16 @@ export function SubmissionReviewPage() {
 
   useEffect(() => {
     if (!submissionId) return
-    getSubmission(submissionId).then(setData)
-    getAnalysisData(submissionId)
+    const loadSubmission = readOnly ? getDoctorSubmission : getNurseSubmission
+    const loadAnalysisData = readOnly ? getDoctorAnalysisData : getNurseAnalysisData
+    loadSubmission(submissionId).then(setData)
+    loadAnalysisData(submissionId)
       .then(setAnalysisData)
       .catch(() => setAnalysisData(null))
     fetchPose3d(submissionId)
       .then(setPose)
       .catch(() => setPose(null))
-  }, [submissionId])
+  }, [submissionId, readOnly])
 
   if (!data) return <Loading />
 
@@ -75,7 +89,11 @@ export function SubmissionReviewPage() {
       </button>
 
       <div className="space-y-6">
-        <SubmissionHeader data={data} />
+        <SubmissionHeader
+          data={data}
+          role={readOnly ? 'doctor' : 'nurse'}
+          readOnly={readOnly}
+        />
 
         {analysis ? (
           <>
@@ -135,20 +153,22 @@ export function SubmissionReviewPage() {
                 {data.analysis_error}
               </pre>
             )}
-            <Button
-              variant="secondary"
-              onClick={async () => {
-                try {
-                  await reanalyzeSubmission(data.id)
-                  toast.success('已重新排入分析，已萃取的資料會直接重用')
-                  navigate(0)
-                } catch (err) {
-                  toast.error(apiErrorMessage(err))
-                }
-              }}
-            >
-              重新分析
-            </Button>
+            {!readOnly && (
+              <Button
+                variant="secondary"
+                onClick={async () => {
+                  try {
+                    await reanalyzeSubmission(data.id)
+                    toast.success('已重新排入分析，已萃取的資料會直接重用')
+                    navigate(0)
+                  } catch (err) {
+                    toast.error(apiErrorMessage(err))
+                  }
+                }}
+              >
+                重新分析
+              </Button>
+            )}
           </div>
         ) : (
           <div className="card flex items-center gap-3 p-6 text-sm text-bark-500">
@@ -157,7 +177,7 @@ export function SubmissionReviewPage() {
           </div>
         )}
 
-        <ReviewSection data={data} onSuccess={onReviewSuccess} />
+        <ReviewSection data={data} onSuccess={onReviewSuccess} readOnly={readOnly} />
       </div>
 
       {/* 成功動畫 */}

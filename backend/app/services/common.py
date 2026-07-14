@@ -35,6 +35,26 @@ def get_active_plan(patient: Patient) -> RehabPlan | None:
     return max(active, key=lambda p: p.start_date) if active else None
 
 
+def get_patient_plans(patient: Patient) -> list[RehabPlan]:
+    return sorted(
+        patient.plans,
+        key=lambda plan: (
+            plan.status in ACTIVE_PLAN_STATUSES,
+            plan.start_date,
+            plan.id,
+        ),
+        reverse=True,
+    )
+
+
+def get_completed_visits(patient: Patient) -> list[Visit]:
+    return sorted(
+        (visit for visit in patient.visits if visit.status == "COMPLETED"),
+        key=lambda visit: (visit.visit_date, visit.id),
+        reverse=True,
+    )
+
+
 def get_rehab_status(patient: Patient) -> str:
     """NO_PLAN | ONGOING | PENDING_EVALUATION | CLOSED"""
     active = get_active_plan(patient)
@@ -110,16 +130,29 @@ def version_to_out(version: PlanVersion) -> PlanVersionOut:
     )
 
 
-def plan_to_card(plan: RehabPlan) -> PlanCardOut:
+def plan_to_card(plan: RehabPlan, db: Session | None = None) -> PlanCardOut:
     current = plan.current_version
+    pending = 0
+    if db is not None:
+        pending = (
+            db.query(VideoSubmission)
+            .filter(
+                VideoSubmission.plan_id == plan.id,
+                VideoSubmission.status == "PENDING_REVIEW",
+            )
+            .count()
+        )
     return PlanCardOut(
         id=plan.id,
         name=plan.name,
         status=plan.status,
         start_date=plan.start_date,
         evaluation_date=plan.evaluation_date,
+        doctor_name=plan.doctor.name,
         nurse_name=plan.nurse.name if plan.nurse else None,
         current_version=current.version if current else None,
+        item_count=len(current.items) if current else 0,
+        pending_review_count=pending,
     )
 
 

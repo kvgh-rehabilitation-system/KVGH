@@ -15,7 +15,8 @@ import {
   Users,
 } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
-import { getPatient, listPatientVisits } from '../../../api/doctor'
+import { getPatient } from '../../../api/doctor'
+import { PlanHistoryList } from '../../../components/PlanHistoryList'
 import { VisitTimeline } from '../../../components/VisitTimeline'
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { InfoGrid } from '../../../components/ui/InfoGrid'
@@ -24,7 +25,7 @@ import { PageTransition, staggerContainer } from '../../../components/ui/PageTra
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { SummaryCard } from '../../../components/ui/SummaryCard'
 import { Tabs } from '../../../components/ui/Tabs'
-import type { PatientDetail, Visit } from '../../../types'
+import type { PatientDetail } from '../../../types'
 import {
   formatDate,
   genderLabel,
@@ -41,13 +42,11 @@ const tabs = [
 export function PatientDetailPage() {
   const { patientId } = useParams()
   const [detail, setDetail] = useState<PatientDetail | null>(null)
-  const [visits, setVisits] = useState<Visit[] | null>(null)
   const [tab, setTab] = useState('overview')
 
   useEffect(() => {
     if (!patientId) return
     getPatient(patientId).then(setDetail)
-    listPatientVisits(patientId).then(setVisits)
   }, [patientId])
 
   if (!detail) return <Loading />
@@ -141,8 +140,8 @@ export function PatientDetailPage() {
         >
           {tab === 'overview' && <OverviewTab detail={detail} />}
           {tab === 'visits' &&
-            (visits && visits.length > 0 ? (
-              <VisitTimeline visits={visits} />
+            (detail.visits.length > 0 ? (
+              <VisitTimeline visits={detail.visits} />
             ) : (
               <EmptyState message="尚無看診紀錄" />
             ))}
@@ -215,7 +214,12 @@ function OverviewTab({ detail }: { detail: PatientDetail }) {
 }
 
 function PlanTab({ detail }: { detail: PatientDetail }) {
-  return <PlanCardSection detail={detail} />
+  return (
+    <section className="card p-6">
+      <h3 className="mb-4 text-base font-semibold text-bark-700">復健計畫歷史</h3>
+      <PlanHistoryList plans={detail.plans} role="doctor" />
+    </section>
+  )
 }
 
 function PlanCardSection({ detail, compact = false }: { detail: PatientDetail; compact?: boolean }) {

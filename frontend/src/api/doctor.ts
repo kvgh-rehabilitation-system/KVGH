@@ -1,5 +1,8 @@
+import axios from 'axios'
+
 import { client } from './client'
 import type {
+  AnalysisData,
   DoctorDashboard,
   NurseReport,
   PatientDetail,
@@ -9,6 +12,7 @@ import type {
   PlanListItem,
   PlanListSummary,
   PlanSubmissionsView,
+  SubmissionDetail,
   Visit,
 } from '../types'
 
@@ -29,6 +33,25 @@ export async function listPatients(params: {
 export async function getPatient(patientId: number | string) {
   const { data } = await client.get<PatientDetail>(`/doctor/patients/${patientId}`)
   return data
+}
+
+export async function getSubmission(submissionId: number | string) {
+  const { data } = await client.get<SubmissionDetail>(`/doctor/submissions/${submissionId}`)
+  return data
+}
+
+export async function getAnalysisData(
+  submissionId: number | string,
+): Promise<AnalysisData | null> {
+  try {
+    const { data } = await client.get<AnalysisData>(
+      `/doctor/submissions/${submissionId}/analysis-data`,
+    )
+    return data
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) return null
+    throw error
+  }
 }
 
 export async function listPatientVisits(patientId: number | string) {

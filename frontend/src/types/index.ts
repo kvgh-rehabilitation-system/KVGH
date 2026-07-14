@@ -169,6 +169,7 @@ export interface SubmissionDetail {
   patient_id: number
   patient_name: string
   patient_number: string
+  plan_status: string
   patient_age: number
   patient_gender: string
   plan_id: number
@@ -299,6 +300,8 @@ export interface PatientDetail {
     active_plan_count: number
     last_submission_date: string | null
   }
+  plans: PlanCard[]
+  visits: Visit[]
   rehab_status: string
   latest_visit: Visit | null
   current_plan: PlanCard | null
@@ -310,9 +313,12 @@ export interface PlanCard {
   name: string
   status: string
   start_date: string
+  doctor_name: string
   evaluation_date: string | null
   nurse_name: string | null
   current_version: number | null
+  item_count: number
+  pending_review_count: number
 }
 
 // ---- 導師影片與分析 pipeline ----
@@ -530,12 +536,6 @@ export interface NursePatientRow {
 export interface NursePatientDetail {
   basic: PatientBasicInfo
   rehab_status: string
-  diagnosis_summary: {
-    diagnosis: string | null
-    assessment: string | null
-    visit_date: string
-    doctor_name: string
-  } | null
   current_plan: {
     id: number
     name: string
@@ -548,9 +548,8 @@ export interface NursePatientDetail {
     goals: string[]
     items: PlanItem[]
   } | null
-  submissions: SubmissionListItem[]
-  score_trend: ScoreTrendPoint[]
-  completion_trend: CompletionTrendPoint[]
+  plans: PlanCard[]
+  visits: Visit[]
 }
 
 export interface PlanItemsView {

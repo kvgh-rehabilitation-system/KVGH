@@ -1,3 +1,4 @@
+import { Eye } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { StatusBadge } from '../../../../components/ui/StatusBadge'
 import type { SubmissionDetail } from '../../../../types'
@@ -9,7 +10,15 @@ import {
 } from '../../../../utils/format'
 
 /** 審核頁標頭：動作名稱、狀態、病患與計畫資訊 */
-export function SubmissionHeader({ data }: { data: SubmissionDetail }) {
+export function SubmissionHeader({
+  data,
+  role = 'nurse',
+  readOnly = false,
+}: {
+  data: SubmissionDetail
+  role?: 'doctor' | 'nurse'
+  readOnly?: boolean
+}) {
   return (
     <div className="card p-6">
       <div className="flex flex-wrap items-center gap-3">
@@ -21,13 +30,18 @@ export function SubmissionHeader({ data }: { data: SubmissionDetail }) {
         {data.decision && (
           <StatusBadge status={data.decision} label={decisionLabel[data.decision]} />
         )}
+        {readOnly && (
+          <span className="inline-flex items-center gap-1.5 rounded-lg bg-parchment px-2.5 py-1 text-xs text-bark-400">
+            <Eye size={13} /> 唯讀檢視
+          </span>
+        )}
       </div>
       <dl className="mt-4 grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
         <div>
           <dt className="text-xs text-bark-300">病患</dt>
           <dd className="mt-0.5">
             <Link
-              to={`/nurse/patients/${data.patient_id}`}
+              to={`/${role}/patients/${data.patient_id}`}
               className="font-medium text-clay-600 hover:underline"
             >
               {data.patient_name}

@@ -5,7 +5,7 @@ from app.api.deps import require_nurse
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.dashboard import NurseDashboardOut
-from app.schemas.rehab_plan import PlanItemCreate, PlanItemUpdate
+from app.schemas.rehab_plan import PlanDetailOut, PlanItemCreate, PlanItemUpdate
 from app.schemas.submission import (
     NurseReportCreate,
     NurseReportOut,
@@ -21,7 +21,7 @@ from app.schemas.teacher_video import (
     TeacherVideoOut,
     TeacherVideoUpdate,
 )
-from app.services import analysis_data_service, common, nurse_service
+from app.services import analysis_data_service, common, doctor_service, nurse_service
 
 router = APIRouter(prefix="/api/nurse", tags=["nurse"])
 
@@ -50,6 +50,22 @@ def patient_detail(
     patient_id: int, user: User = Depends(require_nurse), db: Session = Depends(get_db)
 ):
     return nurse_service.get_patient_detail_for_nurse(db, user, patient_id)
+
+
+@router.get("/plans/{plan_id}", response_model=PlanDetailOut)
+def plan_detail(
+    plan_id: int, user: User = Depends(require_nurse), db: Session = Depends(get_db)
+):
+    return doctor_service.get_plan_detail(db, plan_id)
+
+
+@router.get("/plans/{plan_id}/submissions")
+def plan_submissions(
+    plan_id: int, user: User = Depends(require_nurse), db: Session = Depends(get_db)
+):
+    return doctor_service.get_plan_submissions(db, plan_id)
+
+
 
 
 @router.get("/submissions")

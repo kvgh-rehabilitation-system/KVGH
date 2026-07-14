@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Clapperboard,
   FolderOpen,
+  Lock,
   Pencil,
   Plus,
   Target,
@@ -66,6 +67,7 @@ export function PlanItemsPage() {
   }, [planId])
 
   if (!data) return <Loading />
+  const isActive = ['ONGOING', 'PENDING_EVALUATION'].includes(data.plan_status)
 
   const openCreate = () => {
     setEditing(null)
@@ -162,9 +164,11 @@ export function PlanItemsPage() {
                 <span className="ml-1 text-xs">{data.patient_number}</span>
               </p>
             </div>
-            <Button onClick={openCreate}>
-              <Plus size={16} /> 新增復健動作
-            </Button>
+            {isActive && (
+              <Button onClick={openCreate}>
+                <Plus size={16} /> 新增復健動作
+              </Button>
+            )}
           </div>
 
           {data.goals.length > 0 && (
@@ -179,9 +183,20 @@ export function PlanItemsPage() {
           )}
         </div>
 
+        {!isActive && (
+          <div className="flex items-center gap-2.5 rounded-xl border border-sand bg-parchment/60 px-4 py-3 text-sm text-bark-500">
+            <Lock size={15} className="shrink-0 text-bark-300" />
+            此計畫已結束，內容僅供查看，無法新增或修改復健動作。
+          </div>
+        )}
+
         {data.items.length === 0 ? (
           <div className="card p-6">
-            <EmptyState message="尚未制定復健動作，點右上角「新增復健動作」開始。" />
+            <EmptyState
+              message={isActive
+                ? '尚未制定復健動作，點右上角「新增復健動作」開始。'
+                : '此計畫沒有復健動作紀錄。'}
+            />
           </div>
         ) : (
           <ul className="space-y-4">
@@ -218,25 +233,33 @@ export function PlanItemsPage() {
                         影片重點：{item.example_video_note}
                       </p>
                     )}
-                    <TeacherVideoCard
-                      planId={data.plan_id}
-                      item={item}
-                      onChanged={() => getPlanItems(data.plan_id).then(setData)}
-                    />
+                    {isActive ? (
+                      <TeacherVideoCard
+                        planId={data.plan_id}
+                        item={item}
+                        onChanged={() => getPlanItems(data.plan_id).then(setData)}
+                      />
+                    ) : item.teacher_video ? (
+                      <p className="mt-3 text-xs text-bark-400">
+                        導師影片：{item.teacher_video.name ?? `影片 #${item.teacher_video.id}`}
+                      </p>
+                    ) : null}
                   </div>
-                  <div className="flex gap-1.5">
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(item)}>
-                      <Pencil size={13} /> 編輯
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-rust hover:bg-[#FBF5F3]"
-                      onClick={() => remove(item)}
-                    >
-                      <Trash2 size={13} /> 刪除
-                    </Button>
-                  </div>
+                  {isActive && (
+                    <div className="flex gap-1.5">
+                      <Button variant="ghost" size="sm" onClick={() => openEdit(item)}>
+                        <Pencil size={13} /> 編輯
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-rust hover:bg-[#FBF5F3]"
+                        onClick={() => remove(item)}
+                      >
+                        <Trash2 size={13} /> 刪除
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </motion.li>
             ))}

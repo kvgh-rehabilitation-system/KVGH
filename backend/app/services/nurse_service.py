@@ -183,34 +183,13 @@ def list_my_patients(
 
 def get_patient_detail_for_nurse(db: Session, nurse: User, patient_id: int) -> dict:
     patient = common.get_patient_or_404(db, patient_id)
-    last_visit = common.get_last_visit(patient)
     active_plan = common.get_active_plan(patient)
-
-    diagnosis_summary = None
-    if last_visit:
-        diagnosis_summary = {
-            "diagnosis": last_visit.diagnosis,
-            "assessment": last_visit.assessment,
-            "visit_date": last_visit.visit_date.isoformat(),
-            "doctor_name": last_visit.doctor.name,
-        }
+    plans = common.get_patient_plans(patient)
+    visits = common.get_completed_visits(patient)
 
     current_plan = None
-    submissions = []
-    score_trend = []
-    completion_trend = []
     if active_plan:
         current = active_plan.current_version
-        subs = common.plan_submissions(db, active_plan.id)
-        submissions = [
-            common.submission_to_list_item(s, subs).model_dump(mode="json")
-            for s in reversed(subs)
-        ]
-        score_trend = [p.model_dump(mode="json") for p in common.score_trend(subs)]
-        completion_trend = [
-            p.model_dump(mode="json")
-            for p in common.completion_trend(active_plan, subs)
-        ]
         current_plan = {
             "id": active_plan.id,
             "name": active_plan.name,
@@ -241,11 +220,13 @@ def get_patient_detail_for_nurse(db: Session, nurse: User, patient_id: int) -> d
             created_at=patient.created_at.date(),
         ).model_dump(mode="json"),
         "rehab_status": common.get_rehab_status(patient),
-        "diagnosis_summary": diagnosis_summary,
         "current_plan": current_plan,
-        "submissions": submissions,
-        "score_trend": score_trend,
-        "completion_trend": completion_trend,
+        "plans": [
+            common.plan_to_card(plan, db).model_dump(mode="json") for plan in plans
+        ],
+        "visits": [
+            common.visit_to_out(visit).model_dump(mode="json") for visit in visits
+        ],
     }
 
 
@@ -336,6 +317,7 @@ def get_submission_detail(db: Session, submission_id: int) -> SubmissionDetailOu
         patient_gender=patient.gender,
         plan_id=sub.plan_id,
         plan_name=sub.plan.name,
+        plan_status=sub.plan.status,
         plan_version=sub.plan_version.version,
         item=SubmissionItemInfo(
             id=item.id,
@@ -453,6 +435,8 @@ def add_plan_item(db: Session, plan_id: int, data: PlanItemCreate) -> dict:
 
 def update_plan_item(db: Session, plan_id: int, item_id: int, data: PlanItemUpdate) -> dict:
     plan, current = _get_current_version(db, plan_id)
+    if plan.status not in common.ACTIVE_PLAN_STATUSES:
+        raise HTTPException(status_code=400, detail="計畫已結束，無法修改動作")
     item = db.get(PlanItem, item_id)
     if not item or item.version_id != current.id:
         raise HTTPException(status_code=404, detail="動作項目不存在")
@@ -467,6 +451,8 @@ def update_plan_item(db: Session, plan_id: int, item_id: int, data: PlanItemUpda
 
 def delete_plan_item(db: Session, plan_id: int, item_id: int) -> dict:
     plan, current = _get_current_version(db, plan_id)
+    if plan.status not in common.ACTIVE_PLAN_STATUSES:
+        raise HTTPException(status_code=400, detail="計畫已結束，無法刪除動作")
     item = db.get(PlanItem, item_id)
     if not item or item.version_id != current.id:
         raise HTTPException(status_code=404, detail="動作項目不存在")
