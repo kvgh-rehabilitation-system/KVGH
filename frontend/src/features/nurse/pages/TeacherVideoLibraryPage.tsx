@@ -37,6 +37,7 @@ import { ConfirmDialog } from '../components/library/ConfirmDialog'
 import { PROCESSING_STATUSES } from '../components/library/ExtractionPill'
 import { LibraryVideoCard } from '../components/library/LibraryVideoCard'
 import { ManageFoldersDialog } from '../components/library/ManageFoldersDialog'
+import { PreviewVideoDialog } from '../components/library/PreviewVideoDialog'
 import { UploadDialog } from '../components/library/UploadDialog'
 
 const ALL = 'ALL'
@@ -53,6 +54,7 @@ export function TeacherVideoLibraryPage() {
 
   const [uploadOpen, setUploadOpen] = useState(false)
   const [manageOpen, setManageOpen] = useState(false)
+  const [previewTarget, setPreviewTarget] = useState<TeacherVideo | null>(null)
   const [renameTarget, setRenameTarget] = useState<TeacherVideo | null>(null)
   const [moveTarget, setMoveTarget] = useState<TeacherVideo | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<TeacherVideo | null>(null)
@@ -182,6 +184,7 @@ export function TeacherVideoLibraryPage() {
                 key={v.id}
                 video={v}
                 folderName={v.folder_id != null ? (folderNameById.get(v.folder_id) ?? null) : null}
+                onPreview={setPreviewTarget}
                 onRename={setRenameTarget}
                 onMove={setMoveTarget}
                 onReextract={setReextractTarget}
@@ -207,6 +210,32 @@ export function TeacherVideoLibraryPage() {
         onOpenChange={setManageOpen}
         folders={folders}
         onChanged={refresh}
+      />
+
+      <PreviewVideoDialog
+        video={previewTarget}
+        folderName={
+          previewTarget?.folder_id != null
+            ? (folderNameById.get(previewTarget.folder_id) ?? null)
+            : null
+        }
+        onOpenChange={(open) => !open && setPreviewTarget(null)}
+        onRename={(video) => {
+          setPreviewTarget(null)
+          setRenameTarget(video)
+        }}
+        onMove={(video) => {
+          setPreviewTarget(null)
+          setMoveTarget(video)
+        }}
+        onReextract={(video) => {
+          setPreviewTarget(null)
+          setReextractTarget(video)
+        }}
+        onDelete={(video) => {
+          setPreviewTarget(null)
+          setDeleteTarget(video)
+        }}
       />
 
       {renameTarget && (

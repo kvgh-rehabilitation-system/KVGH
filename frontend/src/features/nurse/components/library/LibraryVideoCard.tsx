@@ -1,10 +1,8 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AnimatePresence, motion } from 'framer-motion'
+import { motion } from 'framer-motion'
 import {
   Bookmark,
   Eye,
-  EyeOff,
   Folder,
   FolderInput,
   Pencil,
@@ -12,9 +10,7 @@ import {
   Trash2,
   User,
 } from 'lucide-react'
-import { teacherVideoUrl } from '../../../../api/media'
 import { Button } from '../../../../components/ui/button'
-import { VideoPlayer } from '../../../../components/ui/VideoPlayer'
 import type { TeacherVideo } from '../../../../types'
 import { formatDate } from '../../../../utils/format'
 import { ExtractionPill } from './ExtractionPill'
@@ -22,6 +18,7 @@ import { ExtractionPill } from './ExtractionPill'
 interface Props {
   video: TeacherVideo
   folderName: string | null
+  onPreview: (tv: TeacherVideo) => void
   onRename: (tv: TeacherVideo) => void
   onMove: (tv: TeacherVideo) => void
   onReextract: (tv: TeacherVideo) => void
@@ -32,12 +29,12 @@ interface Props {
 export function LibraryVideoCard({
   video,
   folderName,
+  onPreview,
   onRename,
   onMove,
   onReextract,
   onDelete,
 }: Props) {
-  const [previewing, setPreviewing] = useState(false)
   const extracted = video.extraction_status === 'EXTRACTED'
   const canReextract = extracted || video.extraction_status === 'FAILED'
 
@@ -73,34 +70,15 @@ export function LibraryVideoCard({
         </p>
       )}
 
-      <AnimatePresence>
-        {previewing && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden"
-          >
-            <div className="h-[240px]">
-              <VideoPlayer
-                src={teacherVideoUrl(video.id)}
-                title={video.name ?? undefined}
-                aspect="fill-height"
-              />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <div className="mt-auto flex flex-wrap items-center gap-1.5 border-t border-sand/70 pt-3">
         <Button
           variant="ghost"
           size="sm"
           disabled={!extracted}
-          onClick={() => setPreviewing((p) => !p)}
+          onClick={() => onPreview(video)}
         >
-          {previewing ? <EyeOff size={13} /> : <Eye size={13} />}
-          {previewing ? '收合' : '預覽'}
+          <Eye size={13} />
+          預覽
         </Button>
         {extracted ? (
           <Button variant="ghost" size="sm" asChild>
