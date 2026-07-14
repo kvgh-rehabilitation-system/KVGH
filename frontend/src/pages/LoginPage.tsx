@@ -64,7 +64,7 @@ export function LoginPage() {
                 <HeartPulse size={25} />
               </span>
               <div>
-                <p className="font-display text-xl font-semibold text-bark-700">KVGH 復健照護</p>
+                <p className="font-display text-xl font-semibold text-bark-700">KVGH 高榮智慧復健系統</p>
                 <p className="text-[11px] tracking-[0.18em] text-bark-400">MOTION INTELLIGENCE</p>
               </div>
             </div>
@@ -98,13 +98,12 @@ export function LoginPage() {
               <div className="mb-4 inline-flex rounded-2xl bg-clay-500 p-3.5 text-white shadow-lifted">
                 <HeartPulse size={28} />
               </div>
-              <h1 className="font-display text-2xl font-semibold tracking-tight text-bark-700">KVGH 復健照護系統</h1>
+              <h1 className="font-display text-2xl font-semibold tracking-tight text-bark-700">KVGH 高榮智慧復健系統</h1>
               <p className="mt-1.5 text-sm text-bark-400">動作分析與跨角色照護平台</p>
             </div>
             <div className="mb-7 hidden lg:block">
-              <p className="text-sm font-medium text-clay-600">安全登入</p>
-              <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-bark-700">回到您的照護工作區</h1>
-              <p className="mt-2 text-sm text-bark-400">請使用院內帳號或病患帳號登入</p>
+              <h1 className="font-display text-3xl font-semibold tracking-tight text-bark-700">歡迎使用高榮智慧復健系統</h1>
+              <p className="mt-2 text-sm text-bark-400">請使用您的帳號登入</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4 rounded-3xl border border-white/70 bg-white/65 p-7 shadow-lifted backdrop-blur-xl">

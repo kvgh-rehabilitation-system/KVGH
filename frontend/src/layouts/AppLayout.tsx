@@ -106,8 +106,8 @@ export function AppLayout({ navItems, roleLabel }: Props) {
             </motion.div>
             <FadeText show={!collapsed}>
               <div className="leading-tight">
-                <p className="text-sm font-semibold text-bark-700">KVGH 復健照護</p>
-                <p className="text-[11px] text-bark-300">Rehabilitation Care</p>
+                <p className="text-sm font-semibold text-bark-700">KVGH 智慧復健</p>
+                <p className="text-[11px] text-bark-300">Smart Rehabilitation</p>
               </div>
             </FadeText>
             <CollapsedTooltip enabled={collapsed} label="展開選單">

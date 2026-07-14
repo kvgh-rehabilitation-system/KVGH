@@ -1,4 +1,4 @@
-# KVGH 復健照護系統
+# KVGH 高榮智慧復健系統系統
 
 高雄榮總復健科系統原型：醫生端、護理師端、病患端三種角色，
 React + FastAPI + PostgreSQL + Celery/RabbitMQ + GPU 演算法 worker。
