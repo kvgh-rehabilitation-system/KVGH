@@ -31,6 +31,21 @@ function RetargetedHuman({
   const markerBones = useMemo(() => findJointBones(model, highJoints), [model, highJoints])
   const markersRef = useRef<Map<string, THREE.Mesh>>(new Map())
 
+  // 隱藏校驗疊層（localStorage.debugPose='1'）：直接畫 17 關節資料點，
+  // 重定向正確 ⇔ 點全程貼合素體對應關節
+  const debugDots = useMemo(() => {
+    if (localStorage.getItem('debugPose') !== '1') return null
+    const mesh = new THREE.InstancedMesh(
+      new THREE.SphereGeometry(0.022, 10, 10),
+      new THREE.MeshBasicMaterial({ color: '#B5543B', depthTest: false }),
+      H36M_JOINTS,
+    )
+    mesh.frustumCulled = false
+    mesh.renderOrder = 10
+    return mesh
+  }, [])
+  const tmpMat = useMemo(() => new THREE.Matrix4(), [])
+
   // 逐幀插值的暫存（避免 GC）
   const scratch = useMemo(() => new Float32Array(H36M_JOINTS * 3), [])
   const tmpVec = useMemo(() => new THREE.Vector3(), [])
@@ -42,7 +57,7 @@ function RetargetedHuman({
     const { frames, positions } = pose
     const framePos = (pb.time * fps) % frames
     const idx = Math.floor(framePos)
-    const next = (idx + 1) % frames
+    const next = Math.min(idx + 1, frames - 1) // 不繞回首幀：末→首插值會混出一幀鬼姿勢
     const blend = framePos - idx
     const baseA = idx * H36M_JOINTS * 3
     const baseB = next * H36M_JOINTS * 3
@@ -51,6 +66,14 @@ function RetargetedHuman({
     }
 
     retargeter.apply(scratch)
+
+    if (debugDots) {
+      for (let j = 0; j < H36M_JOINTS; j++) {
+        tmpMat.makeTranslation(scratch[j * 3], scratch[j * 3 + 1], scratch[j * 3 + 2])
+        debugDots.setMatrixAt(j, tmpMat)
+      }
+      debugDots.instanceMatrix.needsUpdate = true
+    }
 
     // 偏差關節紅標跟隨骨骼世界座標
     markersRef.current.forEach((marker, joint) => {
@@ -66,6 +89,7 @@ function RetargetedHuman({
   return (
     <>
       <primitive object={model} />
+      {debugDots && <primitive object={debugDots} />}
       <JointMarkers joints={highJoints} markerRefs={markersRef} />
     </>
   )
@@ -124,6 +148,7 @@ export default function HumanReplay({ pose, fps, highJoints = [], className }: P
     <div
       className={`relative overflow-hidden rounded-2xl border border-sand bg-gradient-to-b from-[#F3EDE3] to-[#EAE3D8] ${className ?? ''}`}
     >
+      {/* preparePose 已正規化面向 +Z，預設鏡位即正面 */}
       <Canvas shadows camera={{ position: [0.6, 1.35, 3.1], fov: 42 }} className="!touch-none">
         <ambientLight intensity={0.85} color="#FFF4E8" />
         <directionalLight position={[3, 6, 4]} intensity={1.4} color="#FFE8D0" castShadow />

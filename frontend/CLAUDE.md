@@ -23,8 +23,8 @@ React 19 + Vite + TypeScript + Tailwind 3.4 + framer-motion。設計語言：溫
 ## 3D 素體
 
 - 現行素體 = `public/models/rehab_human.glb`（MakeHuman，137 骨蒙皮）：`components/three/human-model.ts` 統一載入（移除檔內重複副本、素色膚材、`JOINT_TO_BONE` 映射；**GLTFLoader 會剝掉骨名的「.」**，查找一律走 `normalizeBoneName`，且不可剝數字否則 upperarm01/02 撞名）
-- `components/three/retarget.ts`：.npy 17 關節座標 → 蒙皮骨架的 swing-only 重定向（逐段方向對齊、骨盆錨定位移+yaw），`HumanReplay` 用
-- `components/three/pose-utils.ts`：`preparePose()` 做座標轉換（`x=-x, y=-y, z=+z` → three.js Y-up）、身高正規化 1.65m、踝高第 5 百分位貼地；`MIRROR_Z` 開關備左右鏡像校正用
+- `components/three/retarget.ts`：.npy 17 關節座標 → 蒙皮骨架的基底驅動（swing+twist）重定向：骨盆/軀幹/頭三正交框架驅動 root/spine05/neck01（yaw 忠實傳遞），四肢用骨段方向+彎曲平面法線（直肢退化時由身體框架搬運綁定法線防抖），骨盆錨定量測式平移；`HumanReplay` 用。**勿退回 swing-only 最短弧**（會抵銷身體 yaw，全身姿勢錯亂）。`localStorage.debugPose='1'` 會疊 17 關節資料點供校驗（點應貼合素體關節；鼻點浮在臉前屬預期）。頭部框架 up=頸根(8)→頭頂(10) 跳過鼻、面向由 胸廓(8)→鼻(9) 決定（H36M 第 9 關節 MotionBERT 實為鼻，不可當頸用）
+- `components/three/pose-utils.ts`：`preparePose()` 做座標轉換（`x=-x, y=-y, z=+z` → three.js Y-up）、一次性朝向正規化（站立幀脊椎轉直立、面向轉 +Z；**傾角 ≥45° 躺姿跳過矯正**）、身高正規化 1.65m、踝高第 5 百分位貼地；`MIRROR_Z` 開關備左右鏡像校正用。正規化後素體直立、面向 +Z、貼地，`HumanReplay` 預設鏡位即正面
 - `.npy` 解析：`src/utils/npy.ts`（僅支援 `<f4` C-order）
 - H36M 關節索引/邊表/8 關節映射都在 `pose-utils.ts`，別在元件裡重複定義
 
