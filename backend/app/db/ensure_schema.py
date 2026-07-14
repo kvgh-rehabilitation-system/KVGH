@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 _COLUMNS: list[tuple[str, str, str]] = [
     ("teacher_videos", "name", "VARCHAR(100)"),
     ("teacher_videos", "folder_id", "INTEGER"),
+    ("users", "is_active", "BOOLEAN NOT NULL DEFAULT TRUE"),
 ]
 
 

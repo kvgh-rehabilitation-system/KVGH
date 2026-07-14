@@ -1,9 +1,14 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { Toaster } from './components/ui/sonner'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
-import { DoctorLayout, NurseLayout, PatientLayout } from './layouts/roleLayouts'
+import { AdminLayout, DoctorLayout, NurseLayout, PatientLayout } from './layouts/roleLayouts'
 import { LoginPage, roleHome } from './pages/LoginPage'
 import { RequireRole } from './routes/RequireRole'
+
+// 管理員端
+import { AdminDashboardPage } from './features/admin/pages/AdminDashboardPage'
+import { AdminUsersPage } from './features/admin/pages/AdminUsersPage'
+import { AdminTasksPage } from './features/admin/pages/AdminTasksPage'
 
 // 醫生端
 import { DoctorDashboardPage } from './features/doctor/pages/DoctorDashboardPage'
@@ -43,6 +48,20 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HomeRedirect />} />
           <Route path="/login" element={<LoginPage />} />
+
+          <Route
+            path="/admin"
+            element={
+              <RequireRole role="admin">
+                <AdminLayout />
+              </RequireRole>
+            }
+          >
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<AdminDashboardPage />} />
+            <Route path="users" element={<AdminUsersPage />} />
+            <Route path="tasks" element={<AdminTasksPage />} />
+          </Route>
 
           <Route
             path="/doctor"

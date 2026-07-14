@@ -23,6 +23,8 @@ def get_current_user(
     user = db.query(User).filter(User.username == payload.get("sub")).first()
     if not user:
         raise HTTPException(status_code=401, detail="使用者不存在")
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="帳號已被停用，請聯絡管理員")
     return user
 
 
@@ -35,6 +37,7 @@ def require_role(role: str):
     return checker
 
 
+require_admin = require_role("admin")
 require_doctor = require_role("doctor")
 require_nurse = require_role("nurse")
 require_patient = require_role("patient")
@@ -57,4 +60,6 @@ def get_user_flexible(
     user = db.query(User).filter(User.username == payload.get("sub")).first()
     if not user:
         raise HTTPException(status_code=401, detail="使用者不存在")
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="帳號已被停用，請聯絡管理員")
     return user

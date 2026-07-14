@@ -27,6 +27,16 @@ const palette: Record<string, string> = {
   // 看診類型
   FIRST: 'bg-clay-50 text-clay-600',
   FOLLOW_UP: 'bg-parchment text-bark-500',
+  // 分析 pipeline（admin 任務監控）
+  PENDING: 'bg-parchment text-bark-400',
+  TRANSCODING: 'bg-clay-50 text-clay-600',
+  EXTRACTING: 'bg-clay-50 text-clay-600',
+  COMPARING: 'bg-clay-50 text-clay-600',
+  DONE: 'bg-sage-50 text-sage-700',
+  FAILED: 'bg-[#F7E8E4] text-rust',
+  // 帳號啟用狀態（admin 帳號管理）
+  ACTIVE: 'bg-sage-50 text-sage-600',
+  DISABLED: 'bg-parchment text-bark-300',
 }
 
 /** 需要呼吸圓點的狀態（等待中的事） */
@@ -35,6 +45,9 @@ const pulseDot: Record<string, string> = {
   ANALYZING: 'bg-clay-500',
   PENDING_DOCTOR_REVIEW: 'bg-[#A87A24]',
   WAITING: 'bg-[#A87A24]',
+  TRANSCODING: 'bg-clay-500',
+  EXTRACTING: 'bg-clay-500',
+  COMPARING: 'bg-clay-500',
 }
 
 export function StatusBadge({ status, label }: { status: string; label: string }) {

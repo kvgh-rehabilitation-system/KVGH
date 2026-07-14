@@ -9,6 +9,7 @@ import { useAuth } from '../contexts/AuthContext'
 import type { Role } from '../types'
 
 export const roleHome: Record<Role, string> = {
+  admin: '/admin/dashboard',
   doctor: '/doctor/dashboard',
   nurse: '/nurse/dashboard',
   patient: '/portal/dashboard',

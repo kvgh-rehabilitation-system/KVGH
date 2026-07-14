@@ -252,13 +252,13 @@ export function TeacherVideoAnnotatePage() {
               {marked.length === 0 ? (
                 <p className="text-xs text-bark-300">尚未標記任何幀</p>
               ) : (
-                <ul className="flex flex-wrap gap-2">
+                <ul className="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(100%,15rem),1fr))]">
                   {marked.map((f, i) => (
                     <motion.li
                       key={f}
                       initial={{ opacity: 0, scale: 0.85 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-sage-50 px-3 py-1.5 text-xs text-sage-700"
+                      className="inline-flex w-full items-center gap-1.5 rounded-full bg-sage-50 px-3 py-1.5 text-xs text-sage-700"
                     >
                       <button className="hover:underline" onClick={() => seekTo(f)}>
                         動作 {i + 1}・第 {f} 幀

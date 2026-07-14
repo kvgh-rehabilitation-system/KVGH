@@ -1,5 +1,5 @@
 // ---- Auth ----
-export type Role = 'doctor' | 'nurse' | 'patient'
+export type Role = 'admin' | 'doctor' | 'nurse' | 'patient'
 
 export interface AuthUser {
   username: string
@@ -632,4 +632,69 @@ export interface PortalPlanDetail {
   score_trend: ScoreTrendPoint[]
   completion_trend: CompletionTrendPoint[]
   submissions: PortalSubmission[]
+}
+
+// ---- Admin（帳號管理 / 系統總覽 / 分析任務監控）----
+
+export interface AdminUser {
+  id: number
+  username: string
+  role: Role
+  name: string
+  title: string | null
+  is_active: boolean
+  created_at: string
+  patient_number: string | null
+  /** 被看診/計畫/影片等資料引用；true 時刪除會降級為停用 */
+  has_related_data: boolean
+}
+
+export interface AdminPatientProfileInput {
+  patient_number: string
+  birth_date: string
+  gender: string
+  phone?: string | null
+}
+
+export interface AdminUserCreateInput {
+  username: string
+  password?: string
+  role: 'doctor' | 'nurse' | 'patient'
+  name: string
+  title?: string | null
+  patient_profile?: AdminPatientProfileInput | null
+}
+
+export interface AdminUserUpdateInput {
+  name?: string
+  title?: string
+  phone?: string
+}
+
+export interface AdminOverview {
+  users: Record<string, { total: number; active: number }>
+  submissions_total: number
+  pending_review: number
+  analysis: { done: number; failed: number; in_progress: number; pending: number }
+  media_disk: { media_bytes: number; disk_total_bytes: number; disk_free_bytes: number }
+}
+
+export interface AdminTaskRow {
+  submission_id: number
+  patient_name: string
+  item_name: string | null
+  submitted_at: string
+  status: SubmissionStatus
+  analysis_status: AnalysisPipelineStatus
+  analysis_error: string | null
+  celery_task_id: string | null
+  teacher_video_id: number | null
+}
+
+export interface AdminTaskList {
+  items: AdminTaskRow[]
+  total: number
+  page: number
+  page_size: number
+  status_counts: Record<string, number>
 }

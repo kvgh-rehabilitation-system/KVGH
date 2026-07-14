@@ -1,4 +1,5 @@
 import {
+  Activity,
   CalendarCheck,
   ClipboardList,
   FileHeart,
@@ -8,6 +9,19 @@ import {
   Users,
 } from 'lucide-react'
 import { AppLayout } from './AppLayout'
+
+export function AdminLayout() {
+  return (
+    <AppLayout
+      roleLabel="管理員"
+      navItems={[
+        { to: '/admin/dashboard', label: '系統總覽', icon: Home },
+        { to: '/admin/users', label: '帳號管理', icon: Users },
+        { to: '/admin/tasks', label: '分析任務', icon: Activity },
+      ]}
+    />
+  )
+}
 
 export function DoctorLayout() {
   return (

@@ -1,6 +1,6 @@
 # KVGH 復健照護系統
 
-高雄榮總復健科原型：病患上傳復健動作影片 → 演算法與導師示範影片比對評分 → 護理師審核回饋 → 醫生調整計畫。三角色（doctor / nurse / patient）。
+高雄榮總復健科原型：病患上傳復健動作影片 → 演算法與導師示範影片比對評分 → 護理師審核回饋 → 醫生調整計畫。四角色（admin / doctor / nurse / patient）。
 
 ## 系統地圖
 
@@ -17,7 +17,8 @@
 - 新機器：`git clone https://github.com/kvgh-rehabilitation-system/KVGH.git` → `docker compose up -d --build` 即用（權重自動下載，無需資料夾外操作）
 - `docker compose up -d --build` → 前端 http://localhost:2000（**port 2000 是使用者指定，勿改**）
 - 服務：frontend(nginx) / backend(uvicorn:8000) / postgres / rabbitmq / worker-gpu / worker-cpu / weights-init（一次性，權重齊全秒過；workers 依賴其成功完成）
-- 帳號：doctor01-03、nurse01-03、patient01-20，密碼一律 `1234`
+- 帳號：admin01、doctor01-03、nurse01-03、patient01-20，密碼一律 `1234`
+- admin 端（`/api/admin/*`、前端 `/admin`）：帳號 CRUD/密碼重設/停用啟用、系統總覽、分析任務監控（重新分析複用 `nurse_service.reanalyze_submission`）。**刪除是軟刪除優先**：帳號被 FK 引用（visits/plans/submissions 等，全無 cascade）時「刪除」自動降級為停用（`users.is_active=false`，登入與所有 API 皆擋），僅無關聯帳號可真刪；禁止改 role、禁止停用/刪除 admin 或自己
 - 種子 `backend/app/seed.py` **預設只建帳號**；`python -m app.seed --demo` 才建假臨床資料（TODAY 相對日期，重跑永遠有「今日」資料）。seed 會把 id 序列跳到 submissions≥1000、teacher_videos≥100，避開磁碟殘留的舊 media 產物
 - backend 程式碼**打進 image、無 bind mount**：小改用 `docker cp backend/app/... kvgh-backend:/app/app/...` + `docker restart kvgh-backend` 熱修，收尾再乾淨 rebuild
 

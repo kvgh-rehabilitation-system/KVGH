@@ -408,7 +408,7 @@ def main() -> None:
             seed_demo(db, staff, patients)
         db.commit()
         print(
-            "Seed 完成（{}）。帳號：doctor01-03 / nurse01-03 / patient01-20，密碼 1234".format(
+            "Seed 完成（{}）。帳號：admin01 / doctor01-03 / nurse01-03 / patient01-20，密碼 1234".format(
                 "帳號 + demo 假資料" if demo else "僅帳號"
             )
         )
@@ -417,7 +417,10 @@ def main() -> None:
 
 
 def seed_accounts(db: Session) -> tuple[dict[str, User], dict[str, Patient]]:
-    """只建帳號：6 位醫護 + 20 位病患（User+Patient），不含任何臨床假資料。"""
+    """只建帳號：1 位管理員 + 6 位醫護 + 20 位病患（User+Patient），不含任何臨床假資料。"""
+    # ---- 系統管理員 ----
+    user(db, "admin01", "admin", "系統管理員", "系統管理員")
+
     # ---- 醫護人員 ----
     d1 = user(db, "doctor01", "doctor", "王志遠", "復健科主治醫師")
     d2 = user(db, "doctor02", "doctor", "陳怡蓁", "復健科主治醫師")
