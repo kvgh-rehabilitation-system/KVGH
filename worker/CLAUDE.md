@@ -21,7 +21,7 @@ Celery worker ×2（gpu/cpu 佇列），把 `algorithm/` 的遺留腳本包成 p
 
 ## ⚠️ 影片合成寫死值（改了要同步 backend）
 
-`humanpose_api.py`：輸出影片 30fps 寫死；每 TALMA 步驟寫 `max(Δ導師, Δ病患)` 幀（先到者凍結）；`output.mp4` 每步驟後加 60 停留幀、`output_plain.mp4` 沒有。**動到這段 → 同步改 `backend/app/services/analysis_data_service.py`（OUTPUT_FPS / HOLD_FRAMES / 段表邏輯）並將 VERSION +1。**
+`humanpose_api.py`：輸出影片 30fps 寫死；每 TALMA 步驟寫 `max(Δ導師, Δ病患)` 幀（先到者凍結）；`output.mp4` 每步驟後加 60 停留幀、`output_plain.mp4` 沒有；合成涵蓋全部步驟（2026-07 前寫死只做前 11 步，舊影片需重新分析才有 12+ 步）。**動到這段 → 同步改 `backend/app/services/analysis_data_service.py`（OUTPUT_FPS / HOLD_FRAMES / 段表邏輯）並將 VERSION +1。**
 
 ## 3D .npy 格式
 

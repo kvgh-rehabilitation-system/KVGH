@@ -2815,11 +2815,12 @@ def make_dtw_png(png77,img_action):
 
 def make_action_similarity(nowindex,sim_history,mentor_HightlightFrame,patient1_result):
     """列出每個動作的導師/病患配對幀與相似度，並標記當前動作。"""
-    width, height = 400, 450
+    # 列數依實際步驟數而定（呼叫端會 resize 回 500×465，列多時等比縮小）
+    n_actions = min(len(mentor_HightlightFrame), len(patient1_result))
+    acton_id = list(range(1, n_actions + 1))
+    width = 400
+    height = max(450, 100 + 30 * n_actions + 20)  # 首列 y_offset=100、每列高 30
     image = np.ones((height, width, 3), dtype=np.uint8) * 255  # 創建白色背景
-
-    # 設定表格的數據
-    acton_id = list(range(1, 12))
     # 設定字體和顏色
     font = cv2.FONT_HERSHEY_SIMPLEX
     font_scale = 0.7
@@ -2852,13 +2853,13 @@ def make_action_similarity(nowindex,sim_history,mentor_HightlightFrame,patient1_
     #cv2.putText(image, "Patient", (300, 40), font, font_scale, color_patient, 2)
     #cv2.putText(image, "Action", (410, 40), font, font_scale, color_patient, 2)
     # 繪製分隔線
-    cv2.line(image, (150, 10), (150, 560), (0, 0, 0), 2)
+    cv2.line(image, (150, 10), (150, height), (0, 0, 0), 2)
     #cv2.line(image, (290, 10), (290, 560), (0, 0, 255), 2)
     #cv2.line(image, (390, 10), (390, 560), (0, 0, 255), 2)
     cv2.line(image, (10, 60), (490, 60), (0, 0, 0), 2)
 
-    cv2.line(image, (200, 10), (200, 560), (0, 0, 0), 2)
-    cv2.line(image, (250, 10), (250, 560), (0, 0, 0), 2)
+    cv2.line(image, (200, 10), (200, height), (0, 0, 0), 2)
+    cv2.line(image, (250, 10), (250, height), (0, 0, 0), 2)
 
     # 繪製數據
     y_offset = 100
@@ -3042,8 +3043,7 @@ for vid_num in range(1):
     # patient1_result = vid_patient_HLTposition[vid_num] # 使用舊版本的結果
     #patient1_result = ptre[vid_num] # 使用新版本 DTW + 左邊, 全身, 右邊的結果
     print(ptre[vid_num])
-    #patient1_result = [ptre[vid_num][i] for i in range(11)] # 使用新版本 DTW + 左邊, 全身, 右邊的結果
-    patient1_result = ptre[vid_num][:11]
+    patient1_result = list(ptre[vid_num])
     vid1_collect_similarity = vid_collect_similarity[vid_num]
     patientVideo1_vectors_AngleMatrix = patientVideo_vectors_AngleMatrix[vid_num]
     vid1_dtw_img_bgr = vid_dtw_img_bgr[vid_num]
@@ -3057,7 +3057,10 @@ for vid_num in range(1):
     similarity_history = []
     hlt_pic_history = np.ones((465, 2500, 3), dtype=np.uint8) * 255
     x_offset = 0
-    step_count = min(len(patient1_result), len(mentor_HightlightFrame), len(vid1_collect_similarity), 12)
+    step_count = min(len(patient1_result), len(mentor_HightlightFrame), len(vid1_collect_similarity))
+    # 縮圖列固定寬 2500：>11 步時縮小每格寬度避免貼圖越界（原本 230/200 只裝得下 11 步）
+    thumb_stride = min(230, 2500 // max(step_count, 1))
+    thumb_w = max(thumb_stride - 30, 60)
     for index in range(step_count):
         vid1_dtw_img_bgr = make_dtw_result_img(patient1_result, index,False,mentor_HightlightFrame)
         similarity_history.append(vid1_collect_similarity[index])
@@ -3100,9 +3103,9 @@ for vid_num in range(1):
             extended_img = np.ones((465, 500, 3), dtype=np.uint8)*255
             if frames == frames_show_count[1]-1 or draw_tag[1]:
                 vid1_dtw_img_bgr = make_dtw_result_img(patient1_result, index,True,mentor_HightlightFrame)
-                img1 = make_stats_vid(list(mentorVideo_vectors_AngleMatrix[start[0]]),list(patientVideo1_vectors_AngleMatrix[start[1]]), vid1_collect_similarity[start[1]],1,jsonlen=11,nowindex=index)
+                img1 = make_stats_vid(list(mentorVideo_vectors_AngleMatrix[start[0]]),list(patientVideo1_vectors_AngleMatrix[start[1]]), vid1_collect_similarity[start[1]],1,jsonlen=step_count,nowindex=index)
             else:
-                img1 = make_stats_vid(list(mentorVideo_vectors_AngleMatrix[start[0]]),list(patientVideo1_vectors_AngleMatrix[start[1]]), vid1_collect_similarity[start[1]],0,jsonlen=11,nowindex=index)
+                img1 = make_stats_vid(list(mentorVideo_vectors_AngleMatrix[start[0]]),list(patientVideo1_vectors_AngleMatrix[start[1]]), vid1_collect_similarity[start[1]],0,jsonlen=step_count,nowindex=index)
             img1 = cv2.resize(img1, (500, 465))
 
             combined_img = np.vstack((img2, img1))  #extended_img.copy()
@@ -3205,13 +3208,14 @@ for vid_num in range(1):
                 cv2.putText(img_to_draw, f'Frame {str(patient1_result[index])}', (600, 1170), cv2.FONT_HERSHEY_SIMPLEX, 3, (0, 0, 255), 13)
                 # cv2.imshow('img_to_draw', cv2.resize(img_to_draw, (200, 465)))
                 # cv2.waitKey(0)
-                img_to_draw = cv2.resize(img_to_draw, (200, 465))
+                img_to_draw = cv2.resize(img_to_draw, (thumb_w, 465))
                 # 定義要貼上的位置 (y_start, y_end, x_start, x_end)
-                y_start, y_end = 0, 0 + img_to_draw.shape[0]  # 100 到 350
-                x_start, x_end = x_offset, x_offset + img_to_draw.shape[1]  # 200 到 300
+                y_start, y_end = 0, 0 + img_to_draw.shape[0]
+                x_start = min(x_offset, 2500 - img_to_draw.shape[1])  # 夾邊界，絕不越出畫布
+                x_end = x_start + img_to_draw.shape[1]
                 # 將小圖片貼到大圖片上
                 hlt_pic_history[y_start:y_end, x_start:x_end] = img_to_draw
-                x_offset += 230
+                x_offset += thumb_stride
                 final_img = np.vstack((final_img, hlt_pic_history))
 
                 # 儲存本步的階梯圖與最後畫面

@@ -3,6 +3,8 @@
 幀↔秒數映射依據 humanpose_api.py 的影片合成邏輯（詳見 worker/CLAUDE.md）：
 - 兩支輸出影片皆為 30fps；每個 TALMA 步驟寫 max(Δmentor, Δpatient) 幀，先到者凍結
 - output.mp4（完整版）每步驟後額外停留 HOLD_FRAMES 幀，output_plain.mp4 沒有
+- 影片合成包含**全部** TALMA 步驟（歷史上曾寫死只做前 11 步，VERSION 2 起已移除；
+  舊影片需重新分析才涵蓋 12+ 步）
 - 病患幀超過最後一步後不再出現於輸出影片 → 夾到影片結尾
 
 首次計算後快取到 results/{id}/dashboard.json；scores.json 更新（重新分析）
@@ -20,7 +22,7 @@ from app.models.submission import VideoSubmission
 from app.models.teacher_video import TeacherVideo
 from app.services import media_service
 
-VERSION = 1
+VERSION = 2
 OUTPUT_FPS = 30.0  # humanpose_api.py 寫死的輸出影片 fps
 HOLD_FRAMES = 60  # 完整版每步驟後的停留幀數
 MAX_CURVE_POINTS = 600

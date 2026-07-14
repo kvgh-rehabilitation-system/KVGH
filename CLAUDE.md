@@ -42,7 +42,7 @@ media/
 輸出影片與病患原片**不是同一條時間軸**：
 
 - 病患原片 ≈60fps；`output.mp4` / `output_plain.mp4` 皆為 **30fps 寫死**
-- 合成邏輯：每個 TALMA 步驟寫 `max(Δ導師幀, Δ病患幀)` 幀（先到者凍結）；`output.mp4` 每步驟後**再加 60 幀停留**，`output_plain.mp4` 沒有
+- 合成邏輯：每個 TALMA 步驟寫 `max(Δ導師幀, Δ病患幀)` 幀（先到者凍結）；`output.mp4` 每步驟後**再加 60 幀停留**，`output_plain.mp4` 沒有；合成涵蓋**全部**步驟（2026-07 前寫死只做前 11 步，該時期的舊影片需重新分析）
 - 映射數學集中在 `backend/app/services/analysis_data_service.py`（常數 `OUTPUT_FPS=30`、`HOLD_FRAMES=60`），前端只用後端預算好的 `t_plain` / `t_full` / `t_patient` / `t_mentor`
 - **若 `algorithm/humanpose_api.py` 的影片合成邏輯改動，必須同步改該 service 並將 `VERSION` +1**（dashboard.json 快取會自動失效重算）
 
