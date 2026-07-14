@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { motion } from 'framer-motion'
-import { HeartPulse, Lock, User } from 'lucide-react'
+import { Eye, EyeOff, HeartPulse, Lock, User } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { apiErrorMessage } from '../api/client'
 import { LazyHumanHero } from '../components/three/lazy'
@@ -20,6 +20,7 @@ export function LoginPage() {
   const navigate = useNavigate()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -118,7 +119,17 @@ export function LoginPage() {
                 <label className="label">密碼</label>
                 <div className="relative">
                   <Lock size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-bark-300" />
-                  <input className="input pl-10" type="password" placeholder="請輸入密碼" value={password} onChange={(e) => setPassword(e.target.value)} />
+                  <input className="input pl-10 pr-11" type={showPassword ? 'text' : 'password'} placeholder="請輸入密碼" value={password} onChange={(e) => setPassword(e.target.value)} />
+                  <button
+                    type="button"
+                    className="absolute right-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-bark-300 transition-colors hover:bg-cream hover:text-bark-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay-400"
+                    onClick={() => setShowPassword((visible) => !visible)}
+                    aria-label={showPassword ? '隱藏密碼' : '顯示密碼'}
+                    aria-pressed={showPassword}
+                    title={showPassword ? '隱藏密碼' : '顯示密碼'}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
                 </div>
               </div>
               {error && (
