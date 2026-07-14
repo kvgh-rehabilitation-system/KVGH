@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import { Button } from '../../../../components/ui/button'
 import type { TeacherVideo } from '../../../../types'
-import { formatDate } from '../../../../utils/format'
+import { formatDate, withRole } from '../../../../utils/format'
 import { ExtractionPill } from './ExtractionPill'
 
 interface Props {
@@ -53,7 +53,7 @@ export function LibraryVideoCard({
           </p>
           <p className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-bark-300">
             <span className="inline-flex items-center gap-1">
-              <User size={11} /> {video.uploader_name ?? '—'}
+              <User size={11} /> {video.uploader_name ? withRole(video.uploader_name, 'nurse') : '—'}
             </span>
             <span>{formatDate(video.created_at)}</span>
             <span className="inline-flex items-center gap-1">

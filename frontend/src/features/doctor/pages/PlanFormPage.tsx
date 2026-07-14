@@ -193,7 +193,7 @@ export function PlanFormPage({ mode }: Props) {
             {mode === 'create' && (
               <>
                 <div>
-                  <label className="label">負責治療人員</label>
+                  <label className="label">負責護理師</label>
                   <select
                     className="input"
                     value={nurseId}
@@ -337,7 +337,7 @@ export function PlanFormPage({ mode }: Props) {
                   {item.teacherVideo && (
                     <span
                       className="inline-flex items-center gap-1.5 rounded-full bg-sage-100 px-3 py-1.5 text-xs text-sage-700"
-                      title="導師影片由治療人員管理，會跟隨此項目沿用至新版本"
+                      title="導師影片由護理師管理，會跟隨此項目沿用至新版本"
                     >
                       <Film size={13} />
                       導師影片：{item.teacherVideo.name ?? `#${item.teacherVideo.id}`}

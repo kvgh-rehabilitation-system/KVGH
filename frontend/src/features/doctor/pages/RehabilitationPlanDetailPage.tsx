@@ -102,7 +102,7 @@ export function RehabilitationPlanDetailPage({ role = 'doctor' }: Props) {
               >
                 {plan.patient_name}
               </Link>{' '}
-              （{plan.patient_number}） · 建立醫生：{plan.doctor_name} · 治療人員：
+              （{plan.patient_number}） · 建立醫師：{plan.doctor_name} · 護理師：
               {plan.nurse_name ?? '—'}
             </p>
           </div>

@@ -28,6 +28,7 @@ import {
   formatDateTime,
   reportKindLabel,
   severityLabel,
+  withRole,
 } from '../../../../utils/format'
 
 interface Props {
@@ -80,7 +81,7 @@ export function ReviewSection({ data, onSuccess, readOnly = false }: Props) {
         severity: reportSeverity,
         content: reportContent,
       })
-      toast.success('已回報醫生')
+      toast.success('已回報醫師')
       setReportOpen(false)
       setReportContent('')
     } catch (err) {
@@ -100,12 +101,12 @@ export function ReviewSection({ data, onSuccess, readOnly = false }: Props) {
           <Dialog open={reportOpen} onOpenChange={setReportOpen}>
             <DialogTrigger asChild>
               <Button variant="secondary" size="sm">
-                <Megaphone size={14} /> 回報醫生
+                <Megaphone size={14} /> 回報醫師
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>回報醫生</DialogTitle>
+                <DialogTitle>回報醫師</DialogTitle>
                 <DialogDescription>
                   針對 {data.patient_name} 的「{data.plan_name}」向主治醫師回報。
                 </DialogDescription>
@@ -171,7 +172,7 @@ export function ReviewSection({ data, onSuccess, readOnly = false }: Props) {
           <div className="flex items-center gap-2">
             <StatusBadge status={data.decision!} label={decisionLabel[data.decision!]} />
             <span className="text-xs text-bark-300">
-              {data.reviewer_name}・{formatDateTime(data.reviewed_at)}
+              {withRole(data.reviewer_name, 'nurse')}・{formatDateTime(data.reviewed_at)}
             </span>
           </div>
           {data.feedback && (

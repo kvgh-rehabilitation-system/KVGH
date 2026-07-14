@@ -484,7 +484,7 @@ export function AdminUsersPage() {
           <DialogHeader>
             <DialogTitle>編輯帳號資料</DialogTitle>
             <DialogDescription>
-              {editTarget?.username}（{roleLabel[editTarget?.role ?? '']}）· 角色不可變更
+              {editTarget?.username}（{editTarget ? roleLabel[editTarget.role] : ''}）· 角色不可變更
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEdit} className="space-y-3.5">

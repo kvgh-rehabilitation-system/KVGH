@@ -6,6 +6,7 @@ import {
   formatDate,
   rehabDecisionLabel,
   visitTypeLabel,
+  withRole,
 } from '../utils/format'
 
 /** 看診歷史 Timeline：逐項浮現動畫，醫生端與病患端共用 */
@@ -33,7 +34,9 @@ export function VisitTimeline({ visits }: { visits: Visit[] }) {
                 status={visit.visit_type}
                 label={visitTypeLabel[visit.visit_type] ?? visit.visit_type}
               />
-              <span className="text-xs text-bark-300">{visit.doctor_name}</span>
+              <span className="text-xs text-bark-300">
+                {withRole(visit.doctor_name, 'doctor')}
+              </span>
             </div>
             <dl className="grid gap-3 text-sm sm:grid-cols-2">
               <div>
@@ -45,7 +48,7 @@ export function VisitTimeline({ visits }: { visits: Visit[] }) {
                 <dd className="mt-0.5 text-bark-600">{visit.diagnosis || '—'}</dd>
               </div>
               <div>
-                <dt className="text-xs text-bark-300">醫生評估</dt>
+                <dt className="text-xs text-bark-300">醫師評估</dt>
                 <dd className="mt-0.5 text-bark-600">{visit.assessment || '—'}</dd>
               </div>
               <div>

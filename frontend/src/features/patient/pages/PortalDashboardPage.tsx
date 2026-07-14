@@ -10,7 +10,7 @@ import { ProgressRing } from '../../../components/ui/ProgressRing'
 import { ScoreTrendChart } from '../../../components/ui/ScoreTrendChart'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import type { PatientDashboard } from '../../../types'
-import { formatDate, greeting, rehabStatusLabel, scoreColor } from '../../../utils/format'
+import { formatDate, greeting, rehabStatusLabel, scoreColor, withRole } from '../../../utils/format'
 
 export function PortalDashboardPage() {
   const [data, setData] = useState<PatientDashboard | null>(null)
@@ -107,7 +107,7 @@ export function PortalDashboardPage() {
               {data.latest_feedback ?? '影片審核完成後，護理師的建議會顯示在這裡。'}
             </p>
             {data.latest_feedback_nurse && (
-              <p className="mt-2 text-xs text-bark-300">— {data.latest_feedback_nurse}</p>
+              <p className="mt-2 text-xs text-bark-300">— {withRole(data.latest_feedback_nurse, 'nurse')}</p>
             )}
           </section>
         </motion.div>

@@ -164,7 +164,7 @@ function OverviewTab({ detail }: { detail: PatientDetail }) {
               <p className="mt-0.5 text-bark-600">{latest_visit.diagnosis || '—'}</p>
             </div>
             <div>
-              <p className="text-xs text-bark-300">醫生評估</p>
+              <p className="text-xs text-bark-300">醫師評估</p>
               <p className="mt-0.5 text-bark-600">{latest_visit.assessment || '—'}</p>
             </div>
             {latest_visit.rehab_decision && (
@@ -220,7 +220,7 @@ function PlanCardSection({ detail, compact = false }: { detail: PatientDetail; c
               <dd className="mt-0.5 text-bark-600">{formatDate(plan.evaluation_date)}</dd>
             </div>
             <div>
-              <dt className="text-xs text-bark-300">負責治療人員</dt>
+              <dt className="text-xs text-bark-300">負責護理師</dt>
               <dd className="mt-0.5 text-bark-600">{plan.nurse_name ?? '—'}</dd>
             </div>
           </dl>

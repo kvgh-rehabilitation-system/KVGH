@@ -1,3 +1,16 @@
+import type { Role } from '@/types'
+
+export const roleLabel: Record<Role, string> = {
+  admin: '管理員',
+  doctor: '醫師',
+  nurse: '護理師',
+  patient: '病患',
+}
+
+/** 姓名後綴角色，例：withRole('王大明','doctor') → '王大明 醫師'；空值回 '' */
+export const withRole = (name: string | null | undefined, role: Role): string =>
+  name ? `${name} ${roleLabel[role]}` : ''
+
 export function formatDate(value: string | null | undefined): string {
   if (!value) return '—'
   const d = new Date(value)
@@ -72,7 +85,7 @@ export const reportKindLabel: Record<string, string> = {
 }
 
 export const reportStatusLabel: Record<string, string> = {
-  PENDING_DOCTOR_REVIEW: '待醫生處理',
+  PENDING_DOCTOR_REVIEW: '待醫師處理',
   REVIEWED: '已處理',
 }
 

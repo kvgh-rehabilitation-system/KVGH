@@ -36,7 +36,7 @@ import { PageTransition } from '../../../components/ui/PageTransition'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { Textarea } from '../../../components/ui/textarea'
 import type { PlanItem, PlanItemInput, PlanItemsView, TeacherVideo } from '../../../types'
-import { rehabStatusLabel } from '../../../utils/format'
+import { rehabStatusLabel, withRole } from '../../../utils/format'
 import { TeacherVideoCard } from '../components/TeacherVideoCard'
 import { TeacherVideoPickerDialog } from '../components/TeacherVideoPickerDialog'
 
@@ -345,7 +345,7 @@ export function PlanItemsPage() {
                   </span>
                   {selectedTv.uploader_name && (
                     <span className="text-[11px] text-bark-300">
-                      {selectedTv.uploader_name} 上傳
+                      {withRole(selectedTv.uploader_name, 'nurse')} 上傳
                     </span>
                   )}
                 </div>

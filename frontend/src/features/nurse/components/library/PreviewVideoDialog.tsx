@@ -20,7 +20,7 @@ import {
 } from '../../../../components/ui/dialog'
 import { VideoPlayer } from '../../../../components/ui/VideoPlayer'
 import type { TeacherVideo } from '../../../../types'
-import { formatDate } from '../../../../utils/format'
+import { formatDate, withRole } from '../../../../utils/format'
 import { ExtractionPill } from './ExtractionPill'
 
 interface Props {
@@ -60,7 +60,7 @@ export function PreviewVideoDialog({
               </DialogDescription>
               <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-bark-300">
                 <span className="inline-flex items-center gap-1.5">
-                  <User size={13} /> {video.uploader_name ?? '—'}
+                  <User size={13} /> {video.uploader_name ? withRole(video.uploader_name, 'nurse') : '—'}
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <CalendarDays size={13} /> {formatDate(video.created_at)}

@@ -9,7 +9,7 @@ import { PageHeader } from '../../../components/ui/PageHeader'
 import { PageTransition, staggerContainer, staggerItem } from '../../../components/ui/PageTransition'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import type { PortalPlanListItem } from '../../../types'
-import { formatDate, rehabStatusLabel } from '../../../utils/format'
+import { formatDate, rehabStatusLabel, withRole } from '../../../utils/format'
 
 export function PortalPlanListPage() {
   const [plans, setPlans] = useState<PortalPlanListItem[] | null>(null)
@@ -49,8 +49,8 @@ export function PortalPlanListPage() {
                 </div>
                 <h2 className="mt-4 text-lg font-semibold text-bark-700">{plan.name}</h2>
                 <p className="mt-1 text-xs text-bark-400">
-                  {formatDate(plan.start_date)} 開始 · {plan.doctor_name}
-                  {plan.nurse_name && ` · ${plan.nurse_name}`}
+                  {formatDate(plan.start_date)} 開始 · {withRole(plan.doctor_name, 'doctor')}
+                  {plan.nurse_name && ` · ${withRole(plan.nurse_name, 'nurse')}`}
                 </p>
                 {plan.goals.length > 0 && (
                   <ul className="mt-3 space-y-1">

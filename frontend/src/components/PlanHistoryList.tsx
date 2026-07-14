@@ -2,7 +2,7 @@ import { CalendarDays, ChevronRight, ClipboardList, ListChecks, UserRound } from
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import type { PlanCard } from '../types'
-import { formatDate, rehabStatusLabel } from '../utils/format'
+import { formatDate, rehabStatusLabel, withRole } from '../utils/format'
 import { StatusBadge } from './ui/StatusBadge'
 
 interface Props {
@@ -100,7 +100,8 @@ function PlanHistoryCard({
             </span>
             <span className="inline-flex items-center gap-1.5">
               <UserRound size={13} />
-              {plan.doctor_name}・{plan.nurse_name ?? '未指派護理師'}
+              {withRole(plan.doctor_name, 'doctor')}・
+              {plan.nurse_name ? withRole(plan.nurse_name, 'nurse') : '未指派護理師'}
             </span>
             <span className="inline-flex items-center gap-1.5">
               <ClipboardList size={13} />

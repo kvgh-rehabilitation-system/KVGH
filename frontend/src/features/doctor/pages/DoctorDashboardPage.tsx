@@ -42,6 +42,7 @@ import {
   todayHeading,
   visitStatusLabel,
   visitTypeLabel,
+  withRole,
 } from '../../../utils/format'
 
 const statusFilters = [
@@ -212,7 +213,7 @@ export function DoctorDashboardPage() {
                       )}
                     </div>
                     <p className="text-xs text-bark-400">
-                      {rep.plan_name}・{rep.nurse_name}・{formatDateTime(rep.created_at)}
+                      {rep.plan_name}・{withRole(rep.nurse_name, 'nurse')}・{formatDateTime(rep.created_at)}
                     </p>
                     <p className="mt-1.5 text-sm leading-relaxed text-bark-600">{rep.content}</p>
                     <div className="mt-2.5 flex gap-2">
@@ -288,7 +289,7 @@ export function DoctorDashboardPage() {
             <DialogTitle>回覆護理師回報</DialogTitle>
             <DialogDescription>
               {replying &&
-                `${replying.patient_name}・${replying.plan_name}・${replying.nurse_name}`}
+                `${replying.patient_name}・${replying.plan_name}・${withRole(replying.nurse_name, 'nurse')}`}
             </DialogDescription>
           </DialogHeader>
           {replying && (
@@ -297,7 +298,7 @@ export function DoctorDashboardPage() {
             </p>
           )}
           <div>
-            <span className="label">醫生回覆（選填）</span>
+            <span className="label">醫師回覆（選填）</span>
             <Textarea
               value={comment}
               onChange={(e) => setComment(e.target.value)}

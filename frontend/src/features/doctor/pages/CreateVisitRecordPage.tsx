@@ -145,7 +145,7 @@ export function CreateVisitRecordPage() {
           </div>
           <div>
             <label className="label flex items-center gap-1.5">
-              <Stethoscope size={13} className="text-clay-500" /> 醫生診斷
+              <Stethoscope size={13} className="text-clay-500" /> 醫師診斷
             </label>
             <p className="mb-1.5 text-[11px] text-bark-300">本次看診的臨床診斷結果</p>
             <textarea
@@ -158,7 +158,7 @@ export function CreateVisitRecordPage() {
           </div>
           <div>
             <label className="label flex items-center gap-1.5">
-              <ClipboardCheck size={13} className="text-clay-500" /> 醫生評估
+              <ClipboardCheck size={13} className="text-clay-500" /> 醫師評估
             </label>
             <p className="mb-1.5 text-[11px] text-bark-300">治療方向、預後與後續建議</p>
             <textarea

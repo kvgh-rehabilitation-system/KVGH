@@ -12,6 +12,7 @@ import {
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { apiErrorMessage } from '../../../api/client'
+import { withRole } from '../../../utils/format'
 import { getTeacherVideo, updatePlanItem, uploadTeacherVideo } from '../../../api/nurse'
 import { Button } from '../../../components/ui/button'
 import { Input } from '../../../components/ui/input'
@@ -151,7 +152,7 @@ export function TeacherVideoCard({ planId, item, onChanged }: Props) {
             <span className="truncate font-medium">{tv.name ?? `影片 #${tv.id}`}</span>
             {tv.uploader_name && (
               <span className="inline-flex items-center gap-1 text-[11px] text-bark-300">
-                <User size={11} /> {tv.uploader_name}
+                <User size={11} /> {withRole(tv.uploader_name, 'nurse')}
               </span>
             )}
           </span>

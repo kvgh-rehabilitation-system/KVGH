@@ -15,7 +15,7 @@ import { VideoPlaceholder } from '../../../components/ui/VideoPlaceholder'
 import { VideoPlayer } from '../../../components/ui/VideoPlayer'
 import { usePollingReload } from '../../../hooks/usePollingReload'
 import type { PortalPlanDetail } from '../../../types'
-import { decisionLabel, formatDate, formatDateTime, rehabStatusLabel, scoreColor } from '../../../utils/format'
+import { decisionLabel, formatDate, formatDateTime, rehabStatusLabel, scoreColor, withRole } from '../../../utils/format'
 import { isPipelineActive, statusLabel } from '../../../utils/submissionStatus'
 import { SubmissionUploader } from '../components/SubmissionUploader'
 
@@ -150,7 +150,7 @@ export function PortalPlanDetailPage() {
                   {submission.feedback && (
                     <div className="mt-3 flex gap-2 rounded-xl bg-sage-50/70 p-3 text-sm text-sage-800">
                       <MessageCircle size={16} className="mt-0.5 shrink-0" />
-                      <p><strong>{submission.reviewer_name ?? '護理師'}：</strong>{submission.feedback}</p>
+                      <p><strong>{submission.reviewer_name ? withRole(submission.reviewer_name, 'nurse') : '護理師'}：</strong>{submission.feedback}</p>
                     </div>
                   )}
                 </div>

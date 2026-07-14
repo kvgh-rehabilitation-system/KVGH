@@ -18,7 +18,7 @@ import { Input } from '../../../components/ui/input'
 import { Loading } from '../../../components/ui/Loading'
 import { VideoPlayer } from '../../../components/ui/VideoPlayer'
 import type { TeacherVideo } from '../../../types'
-import { formatDate } from '../../../utils/format'
+import { formatDate, withRole } from '../../../utils/format'
 
 const extractionLabel: Record<string, string> = {
   PENDING: '排隊等待處理',
@@ -200,7 +200,7 @@ export function TeacherVideoPickerDialog({ open, onOpenChange, onSelect, current
                         </p>
                         <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[11px] text-bark-300">
                           <span className="inline-flex items-center gap-1">
-                            <User size={11} /> {v.uploader_name ?? '—'}
+                            <User size={11} /> {v.uploader_name ? withRole(v.uploader_name, 'nurse') : '—'}
                           </span>
                           <span>{formatDate(v.created_at)}</span>
                         </p>

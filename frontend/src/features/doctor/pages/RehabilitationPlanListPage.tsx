@@ -96,7 +96,7 @@ export function RehabilitationPlanListPage() {
                   <th className="px-5 py-3.5 font-medium">狀態</th>
                   <th className="px-5 py-3.5 font-medium">開始日期</th>
                   <th className="px-5 py-3.5 font-medium">評估日期</th>
-                  <th className="px-5 py-3.5 font-medium">治療人員</th>
+                  <th className="px-5 py-3.5 font-medium">護理師</th>
                   <th className="px-5 py-3.5 font-medium text-right">操作</th>
                 </tr>
               </thead>
