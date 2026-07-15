@@ -22,6 +22,8 @@ TASK_ANNOTATE = "worker.tasks.save_annotation"
 
 
 def _sig(name: str, args: tuple, queue: str):
+    # immutable=True：chain 中每個任務用自己的固定參數（entity id），
+    # 不接收前一個任務的回傳值——任務間靠 DB 狀態銜接，不靠回傳值傳遞
     return celery_client.signature(name, args=args, queue=queue, immutable=True)
 
 

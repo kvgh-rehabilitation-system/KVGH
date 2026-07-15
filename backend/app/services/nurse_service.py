@@ -1,4 +1,9 @@
-"""護理師端商業邏輯：影片審核、動作管理、回報醫生、導師影片。"""
+"""護理師端商業邏輯：影片審核、動作管理、回報醫生、導師影片庫。
+
+範圍慣例：列表/儀表板以「我負責的計畫」（RehabPlan.nurse_id）為界；
+單筆操作（審核、動作維護、導師影片）不驗歸屬——護理師間可互相支援代審。
+導師影片庫為全院共享資源，與個別護理師無綁定。
+"""
 
 from datetime import date, datetime
 
@@ -40,6 +45,7 @@ def _my_plans(db: Session, nurse: User) -> list[RehabPlan]:
 
 
 def _my_submissions_query(db: Session, nurse: User):
+    """我負責計畫底下的所有上傳（歸屬看 plan.nurse_id，不看誰審核的）。"""
     return (
         db.query(VideoSubmission)
         .join(RehabPlan, VideoSubmission.plan_id == RehabPlan.id)
@@ -50,6 +56,10 @@ def _my_submissions_query(db: Session, nurse: User):
 # ---- Dashboard ----
 
 def get_dashboard(db: Session, nurse: User) -> NurseDashboardOut:
+    """護理師首頁：摘要計數 + 待審佇列前 6 筆（最早優先）+ 需注意病患。
+
+    analyzing_count 給前端當輪詢開關：>0 時首頁定時重抓，直到分析全部落地。
+    """
     subs = _my_submissions_query(db, nurse).order_by(VideoSubmission.submitted_at).all()
     today = date.today()
 
@@ -82,7 +92,12 @@ def get_dashboard(db: Session, nurse: User) -> NurseDashboardOut:
 def _attention_items(
     db: Session, nurse: User, subs: list[VideoSubmission]
 ) -> list[AttentionItem]:
-    """分數偏低 / 連續下滑 / 評估日將至的病患。"""
+    """需注意病患清單：最新分數偏低 / 較前次明顯下滑 / 評估日 3 天內。
+
+    以「病患最新一筆有分析的上傳」為判定基準（跨動作直接比較，
+    求的是護理師巡查的粗篩，不是嚴謹的同動作對照——那在審核頁做）。
+    每病患至多一列，依最新分數低者優先排序。
+    """
     items: list[AttentionItem] = []
     seen: set[int] = set()
 
@@ -240,6 +255,8 @@ def list_submissions(
     decision: str | None = None,
     search: str | None = None,
 ) -> dict:
+    """審核佇列頁：summary 計數永遠算「全部」（不受篩選影響），列表才套篩選
+    ——篩選到空清單時卡片數字仍要反映真實工作量。"""
     subs = _my_submissions_query(db, nurse).order_by(VideoSubmission.submitted_at).all()
 
     rows = list(subs)
@@ -350,7 +367,10 @@ def get_submission_detail(db: Session, submission_id: int) -> SubmissionDetailOu
 def review_submission(
     db: Session, nurse: User, submission_id: int, data: ReviewSubmit
 ) -> SubmissionDetailOut:
+    """送出審核結果。REVIEWED 後仍可再送（覆寫決定與回饋），視為修正審核。"""
     sub = get_submission_or_404(db, submission_id)
+    # 分析中不給審（含 FAILED——status 仍是 ANALYZING）：
+    # 失敗件要先走重新分析，避免在沒有演算法佐證下審核
     if sub.status == "ANALYZING":
         raise HTTPException(status_code=400, detail="演算法分析中，尚無法審核")
     if data.decision not in ("APPROVED", "NEEDS_ATTENTION"):
@@ -512,7 +532,7 @@ def _create_teacher_video(
         uploaded_by=nurse.id, name=clean_name, extraction_status="PENDING"
     )
     db.add(tv)
-    db.flush()  # 先取得 id 決定存放目錄與檔名
+    db.flush()  # 先取得 id 才能決定存放目錄 teacher_videos/{id}/（commit 由呼叫端做）
 
     rel_path, original_name = media_service.save_upload(
         upload, media_service.teacher_video_dir(tv.id)
@@ -552,6 +572,7 @@ def upload_teacher_video(
 
 
 def delete_teacher_video(db: Session, teacher_video_id: int) -> dict:
+    """刪除影片庫中的導師影片（連同磁碟上的影片與萃取產物）。"""
     tv = get_teacher_video_or_404(db, teacher_video_id)
     referenced = (
         db.query(PlanItem).filter(PlanItem.teacher_video_id == tv.id).count()
@@ -560,6 +581,10 @@ def delete_teacher_video(db: Session, teacher_video_id: int) -> dict:
         raise HTTPException(
             status_code=409, detail="此導師影片仍被復健計畫動作引用，請先更換影片再刪除"
         )
+    # FIXME: 只檢查了 PlanItem 引用，沒檢查 VideoSubmission.teacher_video_id
+    # （上傳當下的快照）——被歷史上傳引用的影片會在 db.delete 時撞 FK 直接 500，
+    # 且下一行已先把磁碟檔案刪掉，形成「DB 還在、檔案已消失」的殘缺狀態。
+    # 應改為：先驗兩種引用 → commit 成功後才刪檔案。
     media_service.delete_media_dir(media_service.teacher_video_dir(tv.id))
     db.delete(tv)
     db.commit()
@@ -697,12 +722,15 @@ def submit_annotation(
     tv = get_teacher_video_or_404(db, teacher_video_id)
     if tv.extraction_status != "EXTRACTED":
         raise HTTPException(status_code=409, detail="影片尚未完成 2D/3D 萃取，無法標註")
+    # 去重排序：標註順序由幀號決定，前端送來的順序不可信
     frames = sorted(set(int(f) for f in data.frames))
     if not frames:
         raise HTTPException(status_code=422, detail="至少需標註一個重點動作幀")
     if frames[0] < 0 or (tv.frame_count and frames[-1] >= tv.frame_count):
         raise HTTPException(status_code=422, detail="標註幀超出影片範圍")
 
+    # ANNOTATING → worker 寫完 annotation JSON 後改 ANNOTATED；
+    # 先 commit 再 enqueue，確保 worker 讀到的一定是新標註
     tv.annotation_frames = frames
     tv.annotation_status = "ANNOTATING"
     db.commit()
@@ -719,6 +747,8 @@ def reanalyze_submission(db: Session, submission_id: int) -> dict:
         raise HTTPException(status_code=409, detail="此紀錄沒有綁定導師影片，無法重新分析")
     if sub.analysis_status in ("TRANSCODING", "EXTRACTING", "COMPARING"):
         raise HTTPException(status_code=409, detail="分析進行中，請稍候")
+    # 先 commit 狀態再 enqueue：worker 可能立刻開跑，必須先看到 PENDING；
+    # task_id 要等 enqueue 才拿得到，所以分兩次 commit
     sub.analysis_status = "PENDING"
     sub.analysis_error = None
     sub.status = "ANALYZING"

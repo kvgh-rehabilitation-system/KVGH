@@ -24,6 +24,7 @@ from app.schemas.submission import (
 )
 from app.schemas.visit import VisitOut
 
+# 「有效中」= 病患仍在執行、儀表板要追蹤的計畫（COMPLETED/CLOSED/CANCELLED 之外）
 ACTIVE_PLAN_STATUSES = ("ONGOING", "PENDING_EVALUATION")
 
 # 需注意判定：整體分數低於門檻，或連續兩次下滑
@@ -31,11 +32,14 @@ ATTENTION_SCORE_THRESHOLD = 65
 
 
 def get_active_plan(patient: Patient) -> RehabPlan | None:
+    """病患目前的有效計畫。理論上同時只會有一個，
+    若資料異常出現多個，取最近開始的那個而非炸掉。"""
     active = [p for p in patient.plans if p.status in ACTIVE_PLAN_STATUSES]
     return max(active, key=lambda p: p.start_date) if active else None
 
 
 def get_patient_plans(patient: Patient) -> list[RehabPlan]:
+    """計畫列表排序：有效中優先，再依開始日新到舊（id 當同日 tiebreaker）。"""
     return sorted(
         patient.plans,
         key=lambda plan: (
@@ -69,6 +73,11 @@ def get_last_visit(patient: Patient) -> Visit | None:
 
 
 def is_follow_up_overdue(patient: Patient) -> bool:
+    """逾期未回診：最後一次完成看診有約回診日、已過期，且之後沒有任何新掛號。
+
+    later_visit 不限 COMPLETED——只要病患已再掛號（含候診中）就不算逾期，
+    避免病患人已到院還被標成逾期。
+    """
     last = get_last_visit(patient)
     if not last or not last.follow_up_date:
         return False
@@ -131,6 +140,8 @@ def version_to_out(version: PlanVersion) -> PlanVersionOut:
 
 
 def plan_to_card(plan: RehabPlan, db: Session | None = None) -> PlanCardOut:
+    """計畫卡片。db 為選填：不傳就略過待審數的 count 查詢
+    （呼叫端不需要該數字時省一次 DB 往返）。"""
     current = plan.current_version
     pending = 0
     if db is not None:
@@ -168,7 +179,12 @@ def plan_submissions(db: Session, plan_id: int) -> list[VideoSubmission]:
 
 
 def submission_needs_attention(sub: VideoSubmission, history: list[VideoSubmission] | None = None) -> bool:
-    """分數偏低，或與同動作前一次相比明顯下滑。"""
+    """分數偏低，或與同動作前一次相比明顯下滑（跌超過 8 分）。
+
+    Args:
+        history: 用來找「前一次」的候選清單（呼叫端已抓好的同批 submissions，
+                 避免每筆再查一次 DB）；不傳則只做低分判定。
+    """
     if not sub.analysis:
         return False
     if sub.analysis.overall_score < ATTENTION_SCORE_THRESHOLD:
@@ -284,7 +300,11 @@ def weekly_prescribed(plan: RehabPlan) -> int:
 def completion_trend(
     plan: RehabPlan, submissions: list[VideoSubmission], weeks: int = 4
 ) -> list[CompletionTrendPoint]:
-    """近 N 週的每週完成率：實際上傳次數 / 當週處方次數。"""
+    """近 N 週的每週完成率：實際上傳次數 / 處方次數（週一為一週起點）。
+
+    注意：分母固定用「目前版本」的處方，歷史週若當時處方不同會有偏差
+    ——趨勢圖只求粗略走向，不為此保留各週的處方快照。
+    """
     prescribed = weekly_prescribed(plan)
     today = date.today()
     this_monday = today - timedelta(days=today.weekday())
