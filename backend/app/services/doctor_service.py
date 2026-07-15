@@ -43,6 +43,7 @@ from app.services import common
 
 def get_dashboard(db: Session, doctor: User) -> DoctorDashboardOut:
     """醫生首頁：今日看診名單 + 計畫評估提醒 + 待審閱的護理師回報。"""
+    # 今日掛在我名下的看診（依掛號順序）
     today = date.today()
     today_visits = (
         db.query(Visit)
@@ -51,6 +52,7 @@ def get_dashboard(db: Session, doctor: User) -> DoctorDashboardOut:
         .all()
     )
 
+    # 待我審閱的護理師回報（限我開立的計畫）
     pending_reports = (
         db.query(NurseReport)
         .join(RehabPlan, NurseReport.plan_id == RehabPlan.id)
@@ -69,6 +71,7 @@ def get_dashboard(db: Session, doctor: User) -> DoctorDashboardOut:
         pending_report_count=len(pending_reports),
     )
 
+    # 今日名單：每筆掛號補上「上次看診日」（排除本次）與病患目前復健狀態
     today_patients = []
     for v in today_visits:
         patient = v.patient
@@ -89,6 +92,7 @@ def get_dashboard(db: Session, doctor: User) -> DoctorDashboardOut:
             )
         )
 
+    # 評估提醒：我的有效計畫中，待評估 / 評估日已到 / 3 天內將到者
     plan_reminders = []
     plans = (
         db.query(RehabPlan)
@@ -99,6 +103,7 @@ def get_dashboard(db: Session, doctor: User) -> DoctorDashboardOut:
         .all()
     )
     for plan in plans:
+        # 三種提醒原因擇一（依急迫程度排優先序）
         reason = None
         if plan.status == "PENDING_EVALUATION":
             reason = "計畫標記為待評估"
@@ -133,6 +138,7 @@ def list_patients(
     visit_type: str | None = None,
     rehab_status: str | None = None,
 ) -> list[PatientListItem]:
+    """病患總表（跨醫生共享）。姓名/病歷號搜尋下推 SQL，其餘 Python 過濾。"""
     query = db.query(Patient)
     if search:
         like = f"%{search}%"
@@ -167,12 +173,14 @@ def list_patients(
 
 
 def get_patient_detail(db: Session, patient_id: int) -> PatientDetailOut:
+    """病患詳細頁的組合資料（基本資料/統計卡/計畫/看診史一次回齊）。"""
     patient = common.get_patient_or_404(db, patient_id)
     completed_visits = common.get_completed_visits(patient)
     plans = common.get_patient_plans(patient)
     last_visit = common.get_last_visit(patient)
     active_plan = common.get_active_plan(patient)
 
+    # 統計卡需要的「最近上傳日」單獨查一筆即可
     last_submission = (
         db.query(VideoSubmission)
         .filter(VideoSubmission.patient_id == patient.id)
@@ -208,6 +216,7 @@ def get_patient_detail(db: Session, patient_id: int) -> PatientDetailOut:
 
 
 def list_patient_visits(db: Session, patient_id: int) -> list[VisitOut]:
+    """病患的看診史（已完成，新到舊）。"""
     patient = common.get_patient_or_404(db, patient_id)
     visits = common.get_completed_visits(patient)
     return [common.visit_to_out(v) for v in visits]
@@ -243,6 +252,7 @@ def create_visit(db: Session, patient_id: int, doctor: User, data: VisitCreate) 
         )
         db.add(visit)
 
+    # 寫入看診內容並標記完成（doctor_id 覆寫：實際看診者可能非掛號時的醫生）
     visit.doctor_id = doctor.id
     visit.status = "COMPLETED"
     visit.chief_complaint = data.chief_complaint
@@ -251,6 +261,7 @@ def create_visit(db: Session, patient_id: int, doctor: User, data: VisitCreate) 
     visit.rehab_decision = data.rehab_decision
     visit.follow_up_date = data.follow_up_date
 
+    # END_PLAN 是唯一在此連動的決策：直接關閉有效中計畫
     active_plan = common.get_active_plan(patient)
     if data.rehab_decision == "END_PLAN" and active_plan:
         active_plan.status = "CLOSED"
@@ -261,6 +272,7 @@ def create_visit(db: Session, patient_id: int, doctor: User, data: VisitCreate) 
 
 
 def _plan_to_list_item(plan: RehabPlan) -> PlanListItem:
+    """RehabPlan ORM → 列表列（展平病患與護理師名）。"""
     return PlanListItem(
         id=plan.id,
         patient_id=plan.patient_id,
@@ -275,8 +287,10 @@ def _plan_to_list_item(plan: RehabPlan) -> PlanListItem:
 
 
 def get_plan_summary(db: Session) -> PlanListSummary:
+    """計畫列表頁的狀態計數卡（全院計畫，非只有自己的）。"""
     today = date.today()
     plans = db.query(RehabPlan).all()
+    # 即將到期 = 有效中且評估日落在未來 7 天內
     ending_soon = sum(
         1
         for p in plans
@@ -317,9 +331,11 @@ def get_plan_or_404(db: Session, plan_id: int) -> RehabPlan:
 
 
 def get_plan_detail(db: Session, plan_id: int) -> PlanDetailOut:
+    """計畫詳細頁：目前版本 + 歷史版本（新到舊）。"""
     plan = get_plan_or_404(db, plan_id)
     current = plan.current_version
     versions = sorted(plan.versions, key=lambda v: v.version, reverse=True)
+    # 最近調整日 = 最新版本的開始日；等於計畫開始日代表從未調整過（回 None）
     last_adjusted = max((v.started_at for v in plan.versions), default=None)
     return PlanDetailOut(
         id=plan.id,
@@ -347,6 +363,7 @@ def create_plan(db: Session, patient_id: int, doctor: User, data: PlanCreate) ->
     # FIXME: data.nurse_id 未驗證存在且 role == "nurse"——傳錯 id 會直接撞 FK 500，
     # 傳到非護理師帳號則靜默指派錯角色
 
+    # 建計畫主檔（flush 取得 id 供版本掛載）
     plan = RehabPlan(
         patient_id=patient.id,
         doctor_id=doctor.id,
@@ -359,6 +376,7 @@ def create_plan(db: Session, patient_id: int, doctor: User, data: PlanCreate) ->
     db.add(plan)
     db.flush()
 
+    # 建 version 1 與初始動作項目（動作主要由護理師後續維護，可為空）
     version = PlanVersion(
         plan_id=plan.id, version=1, goals=data.goals, started_at=data.start_date
     )
@@ -382,12 +400,14 @@ def adjust_plan(db: Session, plan_id: int, data: PlanAdjust) -> RehabPlan:
     if plan.status not in common.ACTIVE_PLAN_STATUSES:
         raise HTTPException(status_code=400, detail="只能調整有效中的計畫")
 
+    # 關閉舊版本（保留為歷史快照）
     today = date.today()
     current = plan.current_version
     if current:
         current.is_current = False
         current.ended_at = today
 
+    # 開新版本（版號遞增），內容以請求 payload 為準
     new_version = PlanVersion(
         plan_id=plan.id,
         version=(current.version + 1) if current else 1,
@@ -424,6 +444,7 @@ def adjust_plan(db: Session, plan_id: int, data: PlanAdjust) -> RehabPlan:
 
 
 def close_plan(db: Session, plan_id: int) -> RehabPlan:
+    """結束計畫：狀態轉 CLOSED，目前版本補上結束日（版本保留供回顧）。"""
     plan = get_plan_or_404(db, plan_id)
     if plan.status not in common.ACTIVE_PLAN_STATUSES:
         raise HTTPException(status_code=400, detail="計畫已結束")
@@ -437,11 +458,13 @@ def close_plan(db: Session, plan_id: int) -> RehabPlan:
 
 
 def list_nurses(db: Session) -> list[NurseOption]:
+    """護理師下拉選單的選項（建計畫時指派用）。"""
     nurses = db.query(User).filter(User.role == "nurse").order_by(User.id).all()
     return [NurseOption(id=n.id, name=n.name) for n in nurses]
 
 
 def list_reports(db: Session, doctor: User, status: str | None = None) -> list:
+    """我的計畫收到的護理師回報（可依狀態篩選，新到舊）。"""
     query = (
         db.query(NurseReport)
         .join(RehabPlan, NurseReport.plan_id == RehabPlan.id)
@@ -454,6 +477,7 @@ def list_reports(db: Session, doctor: User, status: str | None = None) -> list:
 
 
 def review_report(db: Session, report_id: int, data: DoctorReportReview) -> None:
+    """醫生批示護理師回報：標記已閱 + 選填批註。"""
     report = db.get(NurseReport, report_id)
     if not report:
         raise HTTPException(status_code=404, detail="回報不存在")

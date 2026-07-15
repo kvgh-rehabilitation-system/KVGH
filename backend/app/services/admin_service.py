@@ -34,6 +34,7 @@ def _get_user_or_404(db: Session, user_id: int) -> User:
 
 
 def _patient_of(db: Session, user: User) -> Patient | None:
+    """patient 角色帳號對應的 Patient 列（其他角色回 None）。"""
     if user.role != "patient":
         return None
     return db.query(Patient).filter(Patient.user_id == user.id).first()
@@ -74,6 +75,7 @@ def _user_ref_count(db: Session, user: User) -> int:
 
 
 def _user_out(db: Session, user: User) -> dict:
+    """User ORM → 回應 dict（附病歷號與「是否可真刪」的判定結果）。"""
     p = _patient_of(db, user)
     return {
         "id": user.id,
@@ -94,6 +96,7 @@ def list_users(
     search: str | None = None,
     include_inactive: bool = True,
 ) -> list[dict]:
+    """帳號列表：可依角色篩選、帳號/姓名模糊搜尋、隱藏停用帳號。"""
     q = db.query(User)
     if role:
         q = q.filter(User.role == role)
@@ -107,6 +110,8 @@ def list_users(
 
 
 def create_user(db: Session, data: AdminUserCreate) -> dict:
+    """建立帳號；patient 角色連動建立 Patient 列（schema validator 保證 profile 存在）。"""
+    # 先做友善的撞名檢查（併發撞名由下方 IntegrityError 兜底）
     if db.query(User).filter(User.username == data.username).first():
         raise HTTPException(status_code=409, detail="帳號名稱已存在")
 
@@ -119,6 +124,7 @@ def create_user(db: Session, data: AdminUserCreate) -> dict:
     )
     db.add(u)
     try:
+        # flush 取得 user id；patient 角色再掛 Patient 列（同一交易，一起成功或失敗）
         db.flush()
         if data.role == "patient":
             profile = data.patient_profile
@@ -136,6 +142,7 @@ def create_user(db: Session, data: AdminUserCreate) -> dict:
             )
         db.commit()
     except IntegrityError:
+        # 唯一約束兜底：兩個 admin 同時建同名帳號時，後到者在此被擋
         db.rollback()
         raise HTTPException(status_code=409, detail="帳號名稱或病歷號已存在")
     db.refresh(u)
@@ -143,11 +150,13 @@ def create_user(db: Session, data: AdminUserCreate) -> dict:
 
 
 def update_user(db: Session, user_id: int, data: AdminUserUpdate) -> dict:
+    """更新帳號基本資料（不含 role）；姓名/電話同步到 Patient 列。"""
     u = _get_user_or_404(db, user_id)
     if data.name is not None:
         u.name = data.name
     if data.title is not None:
         u.title = data.title
+    # 病患帳號的姓名存兩處（users + patients），必須同步改
     p = _patient_of(db, u)
     if p:
         if data.name is not None:
@@ -159,6 +168,7 @@ def update_user(db: Session, user_id: int, data: AdminUserUpdate) -> dict:
 
 
 def reset_password(db: Session, user_id: int, new_password: str = "1234") -> dict:
+    """重設密碼（預設回初始密碼 1234，由使用者自行改掉——原型階段無自助改密碼）。"""
     u = _get_user_or_404(db, user_id)
     u.password_hash = hash_password(new_password)
     db.commit()
@@ -166,7 +176,9 @@ def reset_password(db: Session, user_id: int, new_password: str = "1234") -> dic
 
 
 def set_active(db: Session, actor: User, user_id: int, is_active: bool) -> dict:
+    """停用/啟用帳號。停用立即生效（deps.py 每請求檢查 is_active）。"""
     u = _get_user_or_404(db, user_id)
+    # 自鎖與鎖 admin 都會讓系統失去管理能力，一律擋下
     if u.id == actor.id:
         raise HTTPException(status_code=400, detail="不能停用自己的帳號")
     if u.role == "admin" and not is_active:
@@ -177,17 +189,20 @@ def set_active(db: Session, actor: User, user_id: int, is_active: bool) -> dict:
 
 
 def delete_user(db: Session, actor: User, user_id: int) -> dict:
+    """刪除帳號——軟刪除優先：有臨床關聯即自動降級為停用，僅乾淨帳號真刪。"""
     u = _get_user_or_404(db, user_id)
     if u.id == actor.id:
         raise HTTPException(status_code=400, detail="不能刪除自己的帳號")
     if u.role == "admin":
         raise HTTPException(status_code=400, detail="不能刪除管理員帳號")
 
+    # 有任何 FK 引用 → 降級為停用（回傳 deleted=False 讓前端顯示正確訊息）
     if _user_ref_count(db, u) > 0:
         u.is_active = False
         db.commit()
         return {"detail": "帳號有關聯的臨床資料，已改為停用", "deleted": False}
 
+    # 乾淨帳號真刪；病患要先刪 Patient 列（FK 指向 users）
     p = _patient_of(db, u)
     if p:
         db.delete(p)
@@ -228,6 +243,8 @@ def _media_disk() -> dict:
 
 
 def get_overview(db: Session) -> dict:
+    """系統總覽：角色帳號統計 + 上傳/分析狀態計數 + 磁碟用量。"""
+    # 各角色的總數與啟用數（一次 group by + 條件加總算齊）
     role_rows = (
         db.query(
             User.role,
@@ -239,6 +256,7 @@ def get_overview(db: Session) -> dict:
     )
     users = {role: {"total": total, "active": int(active or 0)} for role, total, active in role_rows}
 
+    # 上傳總數與待審數
     submissions_total = db.query(func.count(VideoSubmission.id)).scalar()
     pending_review = (
         db.query(func.count(VideoSubmission.id))
@@ -246,6 +264,7 @@ def get_overview(db: Session) -> dict:
         .scalar()
     )
 
+    # 分析狀態計數：管線中間態（TRANSCODING/EXTRACTING/COMPARING）合併為 in_progress
     status_rows = (
         db.query(VideoSubmission.analysis_status, func.count(VideoSubmission.id))
         .group_by(VideoSubmission.analysis_status)
@@ -279,12 +298,15 @@ def list_tasks(
     page: int = 1,
     page_size: int = 20,
 ) -> dict:
+    """分析任務監控：分頁列表（可依狀態篩）+ 全域狀態計數。"""
+    # 狀態計數永遠算全部（篩選不影響），供前端顯示各狀態 tab 的數字
     status_counts = dict(
         db.query(VideoSubmission.analysis_status, func.count(VideoSubmission.id))
         .group_by(VideoSubmission.analysis_status)
         .all()
     )
 
+    # 列表 join 病患名與動作名（outerjoin：動作可能已被刪）
     q = (
         db.query(VideoSubmission, Patient.name, PlanItem.name)
         .join(Patient, VideoSubmission.patient_id == Patient.id)
@@ -292,6 +314,7 @@ def list_tasks(
     )
     if analysis_status:
         q = q.filter(VideoSubmission.analysis_status == analysis_status)
+    # 先算篩選後總數再取頁（最新上傳優先）
     total = q.count()
     rows = (
         q.order_by(VideoSubmission.submitted_at.desc(), VideoSubmission.id.desc())

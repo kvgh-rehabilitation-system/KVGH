@@ -16,10 +16,12 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def hash_password(password: str) -> str:
+    """明文密碼 → bcrypt 雜湊字串（含隨機 salt，同密碼每次結果不同）。"""
     return pwd_context.hash(password)
 
 
 def verify_password(plain: str, hashed: str) -> bool:
+    """比對明文密碼與 bcrypt 雜湊是否相符（登入驗證用）。"""
     return pwd_context.verify(plain, hashed)
 
 
@@ -33,6 +35,7 @@ def create_access_token(subject: str, role: str) -> str:
     Returns:
         HS256 簽章的 JWT 字串，效期見 settings.JWT_EXPIRE_MINUTES
     """
+    # 效期以 UTC 計算（JWT exp 標準要求）；payload 僅放不敏感的識別資訊
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_EXPIRE_MINUTES)
     payload = {"sub": subject, "role": role, "exp": expire}
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)

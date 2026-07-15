@@ -9,6 +9,7 @@
 # 所有密碼/連接埠皆可由 .env 覆寫，預設值僅供開發。
 name: kvgh
 services:
+  # 主資料庫：帳號、病歷、計畫、上傳與分析結果的唯一事實來源
   postgres:
     image: postgres:16
     container_name: kvgh-postgres
@@ -20,7 +21,9 @@ services:
       # 主機端用 15432：避開宿主機可能已有的原生 PostgreSQL(5432)
       - "${POSTGRES_HOST_PORT:-15432}:5432"
     volumes:
+      # DB 資料放 named volume（不隨容器重建消失；docker volume rm 才會清掉）
       - kvgh-pgdata:/var/lib/postgresql/data
+    # healthcheck 供 backend/workers 的 depends_on 等待 DB 就緒
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kvgh} -d ${POSTGRES_DB:-kvgh}"]
       interval: 5s
@@ -28,6 +31,7 @@ services:
       retries: 12
     restart: unless-stopped
 
+  # Celery broker：backend 發任務、workers 收任務的訊息佇列
   rabbitmq:
     image: rabbitmq:3.13-management
     container_name: kvgh-rabbitmq
@@ -46,6 +50,7 @@ services:
       retries: 12
     restart: unless-stopped
 
+  # FastAPI 後端：程式碼打進 image（無 bind mount），小改用 docker cp 熱修
   backend:
     build: ./backend
     container_name: kvgh-backend
@@ -53,12 +58,14 @@ services:
       # 發布到主機：遠端開發（如 Mac 上的 vite dev）直連此後端
       - "${BACKEND_PORT:-8000}:8000"
     environment:
+      # 以服務名（postgres/rabbitmq）連線——compose 內建 DNS 解析
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-kvgh}:${POSTGRES_PASSWORD:-change-me-pg}@postgres:5432/${POSTGRES_DB:-kvgh}
       CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-kvgh}:${RABBITMQ_PASS:-change-me-mq}@rabbitmq:5672//
       MEDIA_ROOT: /data/media
     volumes:
       # 影片與演算法產物永久存放於專案目錄 media/（除非使用者刪除）
       - ./media:/data/media
+    # 等 DB 與 broker 都通過 healthcheck 才啟動（entrypoint 內另有等待重試當雙保險）
     depends_on:
       postgres:
         condition: service_healthy
@@ -66,6 +73,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # nginx 靜態站 + /api 反代到 backend（前端唯一對外入口）
   frontend:
     build: ./frontend
     container_name: kvgh-frontend

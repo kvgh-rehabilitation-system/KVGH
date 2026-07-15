@@ -15,6 +15,8 @@ from app.schemas.submission import (
 # ---- 醫生端 ----
 
 class DoctorDashboardSummary(BaseModel):
+    """醫生首頁頂部統計卡。"""
+
     today_patient_count: int
     waiting_patient_count: int
     completed_patient_count: int
@@ -22,6 +24,8 @@ class DoctorDashboardSummary(BaseModel):
 
 
 class TodayPatientItem(BaseModel):
+    """今日看診名單的一列。"""
+
     patient_id: int
     patient_name: str
     patient_number: str
@@ -33,6 +37,8 @@ class TodayPatientItem(BaseModel):
 
 
 class PlanReminderItem(BaseModel):
+    """計畫評估提醒的一列（待評估/評估日到期/將到期）。"""
+
     plan_id: int
     patient_name: str
     plan_name: str
@@ -42,6 +48,8 @@ class PlanReminderItem(BaseModel):
 
 
 class DoctorDashboardOut(BaseModel):
+    """醫生首頁完整回應。"""
+
     summary: DoctorDashboardSummary
     today_patients: list[TodayPatientItem]
     plan_reminders: list[PlanReminderItem]
@@ -51,6 +59,8 @@ class DoctorDashboardOut(BaseModel):
 # ---- 護理師端 ----
 
 class NurseDashboardSummary(BaseModel):
+    """護理師首頁頂部統計卡。"""
+
     pending_review_count: int
     reviewed_today_count: int
     attention_patient_count: int
@@ -59,6 +69,8 @@ class NurseDashboardSummary(BaseModel):
 
 
 class AttentionItem(BaseModel):
+    """需注意病患的一列（低分/下滑/評估日將至，reason 說明原因）。"""
+
     patient_id: int
     patient_name: str
     plan_name: str
@@ -68,6 +80,8 @@ class AttentionItem(BaseModel):
 
 
 class NurseDashboardOut(BaseModel):
+    """護理師首頁完整回應。"""
+
     summary: NurseDashboardSummary
     review_queue: list[SubmissionListItem]  # 待審核佇列前 N 筆
     attention_items: list[AttentionItem]
@@ -76,6 +90,8 @@ class NurseDashboardOut(BaseModel):
 # ---- 病患端 ----
 
 class PatientDashboardOut(BaseModel):
+    """病患入口首頁：目前計畫、本週完成度、最新分數/回饋與雙趨勢。"""
+
     name: str
     patient_number: str
     next_follow_up_date: date | None = None

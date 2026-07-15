@@ -13,6 +13,8 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 @router.post("/login", response_model=LoginResponse)
 def login(data: LoginRequest, db: Session = Depends(get_db)):
+    """帳密登入，成功回傳 JWT 與角色資訊（前端據此導向角色首頁）。"""
+    # 驗證帳密（帳號不存在或密碼錯都回 None）
     user = auth_service.authenticate(db, data.username, data.password)
     if not user:
         # 帳號不存在與密碼錯誤刻意回同一訊息，避免洩漏帳號是否存在
@@ -20,6 +22,7 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
     # 停用檢查放在密碼驗證之後：密碼錯的人不該得知帳號被停用
     if not user.is_active:
         raise HTTPException(status_code=403, detail="帳號已被停用，請聯絡管理員")
+    # 簽發 12 小時效期的 JWT（sub=username、role 供前端路由）
     token = create_access_token(user.username, user.role)
     return LoginResponse(
         access_token=token, role=user.role, name=user.name, username=user.username

@@ -33,6 +33,7 @@ while IFS=' ' read -r asset sha size target; do
     tmp="$dest.part"
     curl -fSL --retry 3 --retry-delay 5 -o "$tmp" "$BASE_URL/$asset"
 
+    # 新下載必驗 sha256：不符即丟棄並記失敗，但繼續處理其餘權重（一次看全所有錯誤）
     actual="$(sha256sum "$tmp" | cut -d' ' -f1)"
     if [ "$actual" != "$sha" ]; then
         echo "[weights] ERROR: $asset sha256 不符（got $actual, want $sha）" >&2
@@ -40,10 +41,12 @@ while IFS=' ' read -r asset sha size target; do
         fail=1
         continue
     fi
+    # 驗證通過才原子改名到正式路徑
     mv "$tmp" "$dest"
     echo "[weights] done      $target"
 done < "$MANIFEST"
 
+# 非零 exit code 讓 weights-init 服務失敗 → workers 的 depends_on 條件不成立、不啟動
 if [ "$fail" -ne 0 ]; then
     echo "[weights] 有權重下載失敗，workers 不會啟動；修復後重跑 docker compose up -d" >&2
 fi

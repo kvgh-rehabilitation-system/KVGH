@@ -27,5 +27,6 @@ class Visit(Base):
     follow_up_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
+    # 關聯：所屬病患與看診醫生
     patient = relationship("Patient", back_populates="visits")
     doctor = relationship("User")

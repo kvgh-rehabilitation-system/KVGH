@@ -51,6 +51,7 @@ class VideoSubmission(Base):
     decision: Mapped[str | None] = mapped_column(String(30), nullable=True)
     feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # 關聯：analysis 一對一（uselist=False）；reports 為護理師針對此上傳的回報
     plan = relationship("RehabPlan")
     plan_version = relationship("PlanVersion")
     plan_item = relationship("PlanItem")

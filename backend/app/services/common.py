@@ -52,6 +52,7 @@ def get_patient_plans(patient: Patient) -> list[RehabPlan]:
 
 
 def get_completed_visits(patient: Patient) -> list[Visit]:
+    """已完成的看診紀錄，新到舊（候診中/看診中不列入病歷顯示）。"""
     return sorted(
         (visit for visit in patient.visits if visit.status == "COMPLETED"),
         key=lambda visit: (visit.visit_date, visit.id),
@@ -68,6 +69,7 @@ def get_rehab_status(patient: Patient) -> str:
 
 
 def get_last_visit(patient: Patient) -> Visit | None:
+    """最近一次完成的看診（無看診史回 None）。"""
     completed = [v for v in patient.visits if v.status == "COMPLETED"]
     return max(completed, key=lambda v: v.visit_date) if completed else None
 
@@ -86,6 +88,7 @@ def is_follow_up_overdue(patient: Patient) -> bool:
 
 
 def visit_to_out(visit: Visit) -> VisitOut:
+    """Visit ORM → 回應結構（含醫生姓名的展平）。"""
     return VisitOut(
         id=visit.id,
         visit_date=visit.visit_date,
@@ -101,6 +104,7 @@ def visit_to_out(visit: Visit) -> VisitOut:
 
 
 def item_to_out(item) -> PlanItemOut:
+    """PlanItem ORM → 回應結構；有綁導師影片時附上其狀態摘要。"""
     tv = item.teacher_video
     return PlanItemOut(
         id=item.id,
@@ -127,6 +131,7 @@ def item_to_out(item) -> PlanItemOut:
 
 
 def version_to_out(version: PlanVersion) -> PlanVersionOut:
+    """PlanVersion ORM → 回應結構（含全部動作項目）。"""
     return PlanVersionOut(
         id=version.id,
         version=version.version,
@@ -170,6 +175,7 @@ def plan_to_card(plan: RehabPlan, db: Session | None = None) -> PlanCardOut:
 # ---- 上傳與審核 ----
 
 def plan_submissions(db: Session, plan_id: int) -> list[VideoSubmission]:
+    """某計畫的全部上傳（舊到新——趨勢計算依賴此順序）。"""
     return (
         db.query(VideoSubmission)
         .filter(VideoSubmission.plan_id == plan_id)
@@ -185,10 +191,13 @@ def submission_needs_attention(sub: VideoSubmission, history: list[VideoSubmissi
         history: 用來找「前一次」的候選清單（呼叫端已抓好的同批 submissions，
                  避免每筆再查一次 DB）；不傳則只做低分判定。
     """
+    # 沒有分析結果就無從判斷
     if not sub.analysis:
         return False
+    # 條件一：絕對低分
     if sub.analysis.overall_score < ATTENTION_SCORE_THRESHOLD:
         return True
+    # 條件二：與「同動作、時間在前、有分析」的最近一筆相比明顯下滑
     if history:
         prev = [
             s
@@ -217,6 +226,7 @@ def submission_display_status(sub: VideoSubmission) -> str:
 def submission_to_list_item(
     sub: VideoSubmission, history: list[VideoSubmission] | None = None
 ) -> SubmissionListItem:
+    """VideoSubmission ORM → 列表列（展平病患/計畫/動作名與分數）。"""
     return SubmissionListItem(
         id=sub.id,
         patient_id=sub.patient_id,
@@ -235,6 +245,7 @@ def submission_to_list_item(
 
 
 def analysis_to_out(analysis) -> AnalysisOut:
+    """AnalysisResult ORM → 回應結構；ai_report 從 metrics JSON 抽出成頂層欄位。"""
     return AnalysisOut(
         analyzed_at=analysis.analyzed_at,
         overall_score=analysis.overall_score,
@@ -248,6 +259,7 @@ def analysis_to_out(analysis) -> AnalysisOut:
 
 
 def report_to_out(report: NurseReport) -> NurseReportOut:
+    """NurseReport ORM → 回應結構（展平計畫/病患/護理師名）。"""
     return NurseReportOut(
         id=report.id,
         plan_id=report.plan_id,
@@ -270,10 +282,12 @@ def report_to_out(report: NurseReport) -> NurseReportOut:
 
 def score_trend(submissions: list[VideoSubmission]) -> list[ScoreTrendPoint]:
     """依日期彙整（同日多筆取平均）分析分數趨勢。"""
+    # 先把有分析結果的上傳按上傳日分組
     by_day: dict[date, list] = {}
     for s in submissions:
         if s.analysis:
             by_day.setdefault(s.submitted_at.date(), []).append(s.analysis)
+    # 每組算四種分數的平均，依日期舊到新輸出
     points = []
     for day in sorted(by_day):
         group = by_day[day]
@@ -291,6 +305,7 @@ def score_trend(submissions: list[VideoSubmission]) -> list[ScoreTrendPoint]:
 
 
 def weekly_prescribed(plan: RehabPlan) -> int:
+    """每週處方總次數 = 目前版本各動作 times_per_week 加總（完成率分母）。"""
     current = plan.current_version
     if not current:
         return 0
@@ -306,10 +321,12 @@ def completion_trend(
     ——趨勢圖只求粗略走向，不為此保留各週的處方快照。
     """
     prescribed = weekly_prescribed(plan)
+    # 以本週一為基準往回推 N 週（weekday()：週一=0）
     today = date.today()
     this_monday = today - timedelta(days=today.weekday())
     points = []
     for offset in range(weeks - 1, -1, -1):
+        # 每週區間 [週一, 下週一)，數落在區間內的上傳次數
         week_start = this_monday - timedelta(weeks=offset)
         week_end = week_start + timedelta(days=7)
         completed = sum(
@@ -328,6 +345,7 @@ def completion_trend(
 
 
 def get_patient_or_404(db: Session, patient_id: int) -> Patient:
+    """以 id 取病患，不存在直接回 404（router/service 共用的守門）。"""
     from fastapi import HTTPException
 
     patient = db.get(Patient, patient_id)

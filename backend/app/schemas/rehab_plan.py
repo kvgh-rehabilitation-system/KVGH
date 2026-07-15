@@ -23,6 +23,8 @@ class PlanItemTeacherVideo(BaseModel):
 
 
 class PlanItemOut(BaseModel):
+    """動作項目回應（含綁定導師影片的狀態摘要）。"""
+
     id: int
     name: str
     frequency: str | None = None
@@ -35,6 +37,8 @@ class PlanItemOut(BaseModel):
 
 
 class PlanItemCreate(BaseModel):
+    """新增動作項目（醫生開計畫或護理師逐項維護共用）。"""
+
     name: str
     frequency: str | None = None
     times_per_week: int = 3
@@ -47,6 +51,8 @@ class PlanItemCreate(BaseModel):
 
 
 class PlanItemUpdate(BaseModel):
+    """部分更新動作項目（exclude_unset 語意：沒帶的欄位不動）。"""
+
     name: str | None = None
     frequency: str | None = None
     times_per_week: int | None = None
@@ -59,6 +65,8 @@ class PlanItemUpdate(BaseModel):
 
 
 class PlanVersionOut(BaseModel):
+    """計畫版本快照回應（歷史回顧與目前版本共用）。"""
+
     id: int
     version: int
     goals: list[str]
@@ -85,6 +93,8 @@ class PlanCardOut(BaseModel):
 
 
 class PlanListItem(BaseModel):
+    """計畫列表的一列（含病患識別，供跨病患的計畫總表）。"""
+
     id: int
     patient_id: int
     patient_name: str
@@ -97,6 +107,8 @@ class PlanListItem(BaseModel):
 
 
 class PlanListSummary(BaseModel):
+    """計畫列表頁頂部的狀態計數卡。"""
+
     ongoing: int
     pending_evaluation: int
     ending_soon: int
@@ -104,6 +116,8 @@ class PlanListSummary(BaseModel):
 
 
 class PlanDetailOut(BaseModel):
+    """計畫詳細頁：目前版本 + 全部歷史版本（版本快照設計見 models）。"""
+
     id: int
     name: str
     status: str
@@ -120,6 +134,8 @@ class PlanDetailOut(BaseModel):
 
 
 class PlanCreate(BaseModel):
+    """醫生建立計畫的表單（version 1 的內容）。"""
+
     name: str
     goals: list[str]
     items: list[PlanItemCreate] = []  # 動作項目主要由護理師制定，醫生可選填初始項目
@@ -129,6 +145,8 @@ class PlanCreate(BaseModel):
 
 
 class PlanAdjust(BaseModel):
+    """醫生調整計畫的表單（覆蓋式：goals 與 items 為新版全量內容）。"""
+
     change_summary: str
     goals: list[str]
     items: list[PlanItemCreate]
@@ -136,5 +154,7 @@ class PlanAdjust(BaseModel):
 
 
 class NurseOption(BaseModel):
+    """指派護理師下拉選單的選項。"""
+
     id: int
     name: str

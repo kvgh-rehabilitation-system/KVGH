@@ -12,6 +12,8 @@ from app.schemas.visit import VisitOut
 
 
 class PatientListItem(BaseModel):
+    """病患列表的一列（醫護端）：基本資料 + 最近看診 + 復健狀態。"""
+
     id: int
     patient_number: str
     name: str
@@ -24,6 +26,8 @@ class PatientListItem(BaseModel):
 
 
 class PatientBasicInfo(BaseModel):
+    """病患基本資料卡（詳細頁左側）。"""
+
     id: int
     patient_number: str
     name: str
@@ -35,6 +39,8 @@ class PatientBasicInfo(BaseModel):
 
 
 class PatientSummaryCards(BaseModel):
+    """病患詳細頁頂部的統計卡數字。"""
+
     last_visit_date: date | None = None
     visit_count: int
     active_plan_count: int
@@ -42,6 +48,8 @@ class PatientSummaryCards(BaseModel):
 
 
 class PatientDetailOut(BaseModel):
+    """病患詳細頁的組合回應（基本資料/統計/計畫/看診史一次帶齊）。"""
+
     basic: PatientBasicInfo
     summary: PatientSummaryCards
     rehab_status: str

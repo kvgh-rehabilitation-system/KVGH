@@ -8,11 +8,15 @@ from pydantic import BaseModel
 
 
 class LoginRequest(BaseModel):
+    """登入表單：帳號 + 密碼。"""
+
     username: str
     password: str
 
 
 class LoginResponse(BaseModel):
+    """登入成功回應：JWT + 基本身分（前端存 localStorage 並導向角色首頁）。"""
+
     access_token: str
     token_type: str = "bearer"
     role: str
@@ -21,6 +25,8 @@ class LoginResponse(BaseModel):
 
 
 class MeResponse(BaseModel):
+    """GET /me 回應：目前登入者的完整身分資訊。"""
+
     id: int
     username: str
     role: str

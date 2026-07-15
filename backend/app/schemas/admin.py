@@ -18,6 +18,8 @@ class PatientProfileIn(BaseModel):
 
 
 class AdminUserOut(BaseModel):
+    """帳號列表/單筆回應（含軟刪除判定所需的 has_related_data）。"""
+
     id: int
     username: str
     role: str
@@ -31,6 +33,8 @@ class AdminUserOut(BaseModel):
 
 
 class AdminUserCreate(BaseModel):
+    """建立帳號：patient 角色必附 patient_profile（validator 強制）。"""
+
     username: str
     password: str = "1234"
     role: Literal["doctor", "nurse", "patient"]  # 不開放建立第二個 admin
@@ -54,27 +58,37 @@ class AdminUserUpdate(BaseModel):
 
 
 class ResetPasswordIn(BaseModel):
+    """重設密碼（預設回到通用初始密碼 1234）。"""
+
     new_password: str = "1234"
 
 
 class SetActiveIn(BaseModel):
+    """停用/啟用帳號的開關。"""
+
     is_active: bool
 
 
 # ---- 系統總覽 ----
 
 class RoleCount(BaseModel):
+    """單一角色的帳號統計（總數/啟用中）。"""
+
     total: int
     active: int
 
 
 class MediaDiskOut(BaseModel):
+    """media/ 目錄用量與所在磁碟的容量資訊。"""
+
     media_bytes: int
     disk_total_bytes: int
     disk_free_bytes: int
 
 
 class AdminOverviewOut(BaseModel):
+    """系統總覽頁：帳號統計 + 上傳/分析狀態計數 + 磁碟用量。"""
+
     users: dict[str, RoleCount]  # key = role
     submissions_total: int
     pending_review: int
@@ -85,6 +99,8 @@ class AdminOverviewOut(BaseModel):
 # ---- 分析任務監控 ----
 
 class AdminTaskRow(BaseModel):
+    """任務監控列表的一列（一筆 submission 的分析狀態）。"""
+
     submission_id: int
     patient_name: str
     item_name: str | None = None
@@ -97,6 +113,8 @@ class AdminTaskRow(BaseModel):
 
 
 class AdminTaskListOut(BaseModel):
+    """任務監控回應：分頁列表 + 全域狀態計數（篩選不影響計數）。"""
+
     items: list[AdminTaskRow]
     total: int
     page: int

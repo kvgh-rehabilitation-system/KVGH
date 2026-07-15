@@ -6,6 +6,8 @@ from pydantic import BaseModel
 
 
 class TeacherVideoFolderOut(BaseModel):
+    """影片庫資料夾（含夾內影片數）。"""
+
     id: int
     name: str
     video_count: int
@@ -13,6 +15,8 @@ class TeacherVideoFolderOut(BaseModel):
 
 
 class TeacherVideoFolderIn(BaseModel):
+    """建立/改名資料夾的表單。"""
+
     name: str
 
 
@@ -27,6 +31,8 @@ class TeacherVideoUpdate(BaseModel):
 
 
 class TeacherVideoOut(BaseModel):
+    """導師影片的完整狀態（影片庫卡片與動作綁定顯示共用）。"""
+
     id: int
     name: str | None = None
     original_filename: str | None = None
@@ -42,6 +48,8 @@ class TeacherVideoOut(BaseModel):
 
 
 class AnnotationOut(BaseModel):
+    """標註頁回應：影片參數 + 目前的重點動作幀清單。"""
+
     teacher_video_id: int
     fps: float | None = None
     frame_count: int | None = None
@@ -50,6 +58,8 @@ class AnnotationOut(BaseModel):
 
 
 class AnnotationSubmit(BaseModel):
+    """護理師送出標註的表單。"""
+
     frames: list[int]  # 重點動作幀（遞增）
 
 

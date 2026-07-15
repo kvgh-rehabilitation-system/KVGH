@@ -27,6 +27,7 @@ class RehabPlan(Base):
     created_from_visit_id: Mapped[int | None] = mapped_column(ForeignKey("visits.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
+    # 關聯：doctor/nurse 都指向 users 表，需明示 foreign_keys 消歧
     patient = relationship("Patient", back_populates="plans")
     doctor = relationship("User", foreign_keys=[doctor_id])
     nurse = relationship("User", foreign_keys=[nurse_id])
@@ -36,6 +37,7 @@ class RehabPlan(Base):
 
     @property
     def current_version(self) -> "PlanVersion | None":
+        """目前生效的版本（is_current=True 那筆；理論上恰一筆）。"""
         return next((v for v in self.versions if v.is_current), None)
 
 
@@ -59,6 +61,7 @@ class PlanVersion(Base):
     ended_at: Mapped[date | None] = mapped_column(Date, nullable=True)
     is_current: Mapped[bool] = mapped_column(Boolean, default=True)
 
+    # 關聯：所屬計畫與本版動作項目（依建立順序）
     plan = relationship("RehabPlan", back_populates="versions")
     items = relationship("PlanItem", back_populates="version", order_by="PlanItem.id")
 

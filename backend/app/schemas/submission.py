@@ -13,6 +13,8 @@ from pydantic import BaseModel
 # ---- 演算法分析 ----
 
 class AnalysisOut(BaseModel):
+    """演算法分析結果（四分數 + metrics 直通 + 規則式摘要）。"""
+
     analyzed_at: datetime
     overall_score: float
     joint_angle_score: float
@@ -25,6 +27,8 @@ class AnalysisOut(BaseModel):
 
 
 class ScoreTrendPoint(BaseModel):
+    """分數趨勢圖的一個點（同日多筆已平均）。"""
+
     date: date
     overall: float
     joint_angle: float
@@ -33,6 +37,8 @@ class ScoreTrendPoint(BaseModel):
 
 
 class CompletionTrendPoint(BaseModel):
+    """每週完成率趨勢圖的一個點。"""
+
     week_start: date
     label: str  # 例如「6/22 週」
     completed: int
@@ -43,6 +49,8 @@ class CompletionTrendPoint(BaseModel):
 # ---- 上傳與審核 ----
 
 class SubmissionListItem(BaseModel):
+    """審核佇列列表的一列。"""
+
     id: int
     patient_id: int
     patient_name: str
@@ -59,6 +67,8 @@ class SubmissionListItem(BaseModel):
 
 
 class SubmissionItemInfo(BaseModel):
+    """審核頁顯示的動作項目資訊（上傳當時版本的快照）。"""
+
     id: int
     name: str
     frequency: str | None = None
@@ -70,6 +80,8 @@ class SubmissionItemInfo(BaseModel):
 
 
 class SubmissionDetailOut(BaseModel):
+    """審核頁完整資料：病患/計畫/動作/分析/審核狀態 + 歷次分數。"""
+
     id: int
     patient_id: int
     patient_name: str
@@ -98,6 +110,8 @@ class SubmissionDetailOut(BaseModel):
 
 
 class ReviewSubmit(BaseModel):
+    """護理師送出審核的表單。"""
+
     decision: str  # APPROVED | NEEDS_ATTENTION
     feedback: str | None = None
 
@@ -105,6 +119,8 @@ class ReviewSubmit(BaseModel):
 # ---- 護理師回報醫生 ----
 
 class NurseReportCreate(BaseModel):
+    """護理師建立回報的表單（可選擇性掛在某筆上傳上）。"""
+
     plan_id: int
     submission_id: int | None = None
     kind: str  # STATUS_REPORT | ADJUSTMENT_SUGGESTION | ABNORMALITY
@@ -113,6 +129,8 @@ class NurseReportCreate(BaseModel):
 
 
 class NurseReportOut(BaseModel):
+    """回報的完整回應（護理師端列表與醫生端待審共用）。"""
+
     id: int
     plan_id: int
     plan_name: str
@@ -130,4 +148,6 @@ class NurseReportOut(BaseModel):
 
 
 class DoctorReportReview(BaseModel):
+    """醫生批示回報的表單（標記已閱 + 選填批註）。"""
+
     doctor_comment: str | None = None

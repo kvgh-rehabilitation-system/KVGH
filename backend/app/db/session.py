@@ -11,6 +11,7 @@ connect_args = {}
 if settings.DATABASE_URL.startswith("sqlite"):
     connect_args["check_same_thread"] = False
 
+# 全 app 唯一的 engine（連線池由它管理）；models 的 create_all 也綁定它
 engine = create_engine(settings.DATABASE_URL, connect_args=connect_args)
 # autoflush 關閉：查詢不觸發隱式 flush，寫入時機由 service 層的 commit 明確控制
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)

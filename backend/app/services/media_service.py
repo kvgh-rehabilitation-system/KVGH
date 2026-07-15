@@ -24,6 +24,7 @@ _CHUNK_SIZE = 1024 * 1024  # 1MB
 
 
 def media_root() -> Path:
+    """MEDIA_ROOT 的 Path（順手確保目錄存在，首次啟動即可用）。"""
     root = Path(settings.MEDIA_ROOT)
     root.mkdir(parents=True, exist_ok=True)
     return root
@@ -37,6 +38,8 @@ def abs_path(rel_path: str) -> Path:
         raise HTTPException(status_code=400, detail="非法路徑")
     return target
 
+
+# 三類媒體目錄的路徑約定（與 worker/演算法共用的磁碟契約，見根目錄 CLAUDE.md）
 
 def teacher_video_dir(teacher_video_id: int) -> Path:
     return media_root() / "teacher_videos" / str(teacher_video_id)
@@ -52,6 +55,7 @@ def results_dir(submission_id: int) -> Path:
 
 def save_upload(upload: UploadFile, dest_dir: Path) -> tuple[str, str]:
     """儲存原始上傳檔為 upload.<副檔名>，回傳 (相對路徑, 原始檔名)。"""
+    # 白名單副檔名檢查（轉檔交給 worker 的 ffmpeg，這裡只擋明顯非影片）
     original_name = upload.filename or "video"
     ext = Path(original_name).suffix.lower()
     if ext not in ALLOWED_UPLOAD_EXTENSIONS:
@@ -59,8 +63,10 @@ def save_upload(upload: UploadFile, dest_dir: Path) -> tuple[str, str]:
             status_code=400,
             detail=f"不支援的影片格式 {ext or '(無副檔名)'}，支援：{'、'.join(sorted(ALLOWED_UPLOAD_EXTENSIONS))}",
         )
+    # 固定存成 upload.<ext>（不信任使用者檔名，避免路徑注入與編碼問題）
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest = dest_dir / f"upload{ext}"
+    # 串流分塊落地，大檔不佔記憶體
     with dest.open("wb") as f:
         shutil.copyfileobj(upload.file, f, length=_CHUNK_SIZE)
     rel = dest.relative_to(media_root())
@@ -68,6 +74,7 @@ def save_upload(upload: UploadFile, dest_dir: Path) -> tuple[str, str]:
 
 
 def delete_media_dir(path: Path) -> None:
+    """整目錄刪除（冪等；不存在就靜默跳過）。副作用：磁碟檔案不可復原。"""
     if path.exists():
         shutil.rmtree(path)
 
@@ -112,6 +119,7 @@ def stream_video(request: Request, rel_path: str | None):
 
     content_length = end - start + 1
 
+    # 產生器逐塊讀取請求範圍：seek 到起點、只吐 content_length bytes
     def iter_file():
         with path.open("rb") as f:
             f.seek(start)

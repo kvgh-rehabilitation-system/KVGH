@@ -24,6 +24,7 @@ class Patient(Base):
     phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
+    # 關聯：登入帳號（一對一）、看診紀錄（新到舊）、復健計畫
     user = relationship("User")
     visits = relationship("Visit", back_populates="patient", order_by="desc(Visit.visit_date)")
     plans = relationship("RehabPlan", back_populates="patient")

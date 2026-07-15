@@ -41,11 +41,13 @@ ANGLE_TO_JOINT = {
 
 
 def _load_json(path: Path):
+    """讀取 UTF-8 JSON 檔（演算法產物一律此編碼）。"""
     with path.open(encoding="utf-8") as f:
         return json.load(f)
 
 
 def _cos_to_deg(value: float) -> float:
+    """cos 值 → 角度（度）。先夾到 [-1,1] 防浮點誤差讓 acos 拋 domain error。"""
     return math.degrees(math.acos(max(-1.0, min(1.0, value))))
 
 
@@ -119,6 +121,9 @@ def _frame_times(segments: list[dict], patient_frame: int) -> tuple[float, float
 
 
 def _build_payload(db: Session, sub: VideoSubmission) -> dict:
+    """從 results/{id} 的演算法產物組出審核頁儀表板 payload（無快取，由呼叫端包）。"""
+    # scores.json（相似度/配對）與 stair.json（步驟切點）缺一不可；
+    # seed 假資料磁碟無檔案，走到這裡就是 404（前端會降級顯示）
     results = media_service.results_dir(sub.id)
     scores_path = results / "scores.json"
     stair_path = results / "stair.json"
@@ -130,14 +135,17 @@ def _build_payload(db: Session, sub: VideoSubmission) -> dict:
     analysis = sub.analysis
     metrics = (analysis.metrics or {}) if analysis else {}
 
+    # 建段表：所有「病患幀 → 各影片秒數」映射的基礎
     steps: list[int] = stair["steps"]
     mentor_hlt: list[int] = stair["mentor_hlt"]
     similarity_seq: list[float] = scores["similarity_seq"]
     segments = _build_segments(steps, mentor_hlt)
 
+    # 病患原片 fps 取自 metrics（轉檔時記錄）；缺值時退回輸出 fps 免除以零
     patient_fps = float(
         (metrics.get("motion_sequence") or {}).get("fps") or OUTPUT_FPS
     )
+    # 導師影片資訊（可能已被刪，全部容錯為 None）
     mentor_info = None
     mentor_fps = None
     if sub.teacher_video_id:
@@ -168,6 +176,7 @@ def _build_payload(db: Session, sub: VideoSubmission) -> dict:
             }
         )
 
+    # 相似度曲線降採樣到 MAX_CURVE_POINTS 點以內（60fps 長片可達數千幀，前端畫不動）
     stride = max(1, math.ceil(len(similarity_seq) / MAX_CURVE_POINTS))
     sample_frames = list(range(0, len(similarity_seq), stride))
     curve = []
@@ -234,10 +243,16 @@ def _build_payload(db: Session, sub: VideoSubmission) -> dict:
 
 
 def get_analysis_data(db: Session, submission_id: int) -> dict:
+    """審核頁儀表板資料（帶 dashboard.json 檔案快取）。
+
+    快取有效條件：快取比 scores.json 新（重新分析會更新 scores 的 mtime）
+    且 version 與當前程式一致（payload 結構改動時 VERSION +1 使其失效）。
+    """
     sub = db.get(VideoSubmission, submission_id)
     if not sub:
         raise HTTPException(status_code=404, detail="上傳紀錄不存在")
 
+    # 快取命中檢查：mtime 比對 + version 比對，兩關都過才直接回快取
     results = media_service.results_dir(submission_id)
     cache_path = results / "dashboard.json"
     scores_path = results / "scores.json"
@@ -250,6 +265,7 @@ def get_analysis_data(db: Session, submission_id: int) -> dict:
         if cached.get("version") == VERSION:
             return cached
 
+    # 未命中：重算並寫回快取
     payload = _build_payload(db, sub)
     try:
         with cache_path.open("w", encoding="utf-8") as f:

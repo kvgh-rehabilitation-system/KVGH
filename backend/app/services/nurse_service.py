@@ -41,6 +41,7 @@ from app.services import common, media_service, task_queue
 
 
 def _my_plans(db: Session, nurse: User) -> list[RehabPlan]:
+    """我（護理師）負責追蹤的全部計畫。"""
     return db.query(RehabPlan).filter(RehabPlan.nurse_id == nurse.id).all()
 
 
@@ -60,14 +61,17 @@ def get_dashboard(db: Session, nurse: User) -> NurseDashboardOut:
 
     analyzing_count 給前端當輪詢開關：>0 時首頁定時重抓，直到分析全部落地。
     """
+    # 一次抓齊我負責的全部上傳，後續計數與佇列都在記憶體內分組（避免多次查詢）
     subs = _my_submissions_query(db, nurse).order_by(VideoSubmission.submitted_at).all()
     today = date.today()
 
+    # 待審核與今日已審的子集合
     pending = [s for s in subs if s.status == "PENDING_REVIEW"]
     reviewed_today = [
         s for s in subs if s.reviewed_at and s.reviewed_at.date() == today
     ]
 
+    # 需注意病患 + 我的病患數（只算有效中計畫的病患）
     attention_items = _attention_items(db, nurse, subs)
     my_patients = {
         p.patient_id
@@ -75,6 +79,7 @@ def get_dashboard(db: Session, nurse: User) -> NurseDashboardOut:
         if p.status in common.ACTIVE_PLAN_STATUSES
     }
 
+    # 佇列取最早上傳的前 6 筆（先進先審）
     queue = sorted(pending, key=lambda s: s.submitted_at)[:6]
     return NurseDashboardOut(
         summary=NurseDashboardSummary(
@@ -101,23 +106,28 @@ def _attention_items(
     items: list[AttentionItem] = []
     seen: set[int] = set()
 
+    # 依病患分組（只留有分析結果的上傳）
     by_patient: dict[int, list[VideoSubmission]] = {}
     for s in subs:
         if s.analysis:
             by_patient.setdefault(s.patient_id, []).append(s)
 
     for patient_id, plist in by_patient.items():
+        # 取該病患最新與次新的上傳作為判定基準
         plist.sort(key=lambda s: s.submitted_at)
         last = plist[-1]
         prev = plist[-2] if len(plist) > 1 else None
         reasons = []
         delta = None
+        # 條件一：最新分數低於門檻
         if last.analysis.overall_score < common.ATTENTION_SCORE_THRESHOLD:
             reasons.append(f"最新動作分數 {last.analysis.overall_score:.0f} 分偏低")
+        # 條件二：與前次相比跌超過 8 分
         if prev:
             delta = round(last.analysis.overall_score - prev.analysis.overall_score, 1)
             if delta <= -8:
                 reasons.append("分數較前次明顯下滑")
+        # 條件三：所屬計畫的評估日在 3 天內（含已過期）
         plan = last.plan
         if (
             plan.evaluation_date
@@ -125,6 +135,7 @@ def _attention_items(
             and (plan.evaluation_date - date.today()).days <= 3
         ):
             reasons.append("計畫即將到達評估日")
+        # 任一條件成立即列入（每病患只列一次）
         if reasons and patient_id not in seen:
             seen.add(patient_id)
             items.append(
@@ -157,9 +168,11 @@ def list_my_patients(
     patients = db.query(Patient).order_by(Patient.patient_number).all()
     rows = []
     for patient in patients:
+        # 決定「顯示計畫」：有效中優先，否則最近開始的一筆（可能為 None）
         plan = common.get_active_plan(patient) or max(
             patient.plans, key=lambda p: p.start_date, default=None
         )
+        # 歸屬判定 + 三種篩選（範圍/關鍵字/計畫狀態），不符即跳過
         is_mine = plan is not None and plan.nurse_id == nurse.id
         if scope != "all" and not is_mine:
             continue
@@ -170,6 +183,7 @@ def list_my_patients(
         if plan_status and plan_status != "ALL":
             if plan is None or plan.status != plan_status:
                 continue
+        # 顯示計畫的上傳統計：最新有分析的一筆提供分數
         subs = common.plan_submissions(db, plan.id) if plan else []
         analyzed = [s for s in subs if s.analysis]
         latest = analyzed[-1] if analyzed else None
@@ -198,11 +212,13 @@ def list_my_patients(
 
 
 def get_patient_detail_for_nurse(db: Session, nurse: User, patient_id: int) -> dict:
+    """護理師端病患詳細頁：基本資料 + 目前計畫（含動作）+ 計畫卡列表 + 看診史。"""
     patient = common.get_patient_or_404(db, patient_id)
     active_plan = common.get_active_plan(patient)
     plans = common.get_patient_plans(patient)
     visits = common.get_completed_visits(patient)
 
+    # 有效中計畫展開成含目標與動作項目的完整結構（護理師要逐項維護）
     current_plan = None
     if active_plan:
         current = active_plan.current_version
@@ -259,6 +275,7 @@ def list_submissions(
     ——篩選到空清單時卡片數字仍要反映真實工作量。"""
     subs = _my_submissions_query(db, nurse).order_by(VideoSubmission.submitted_at).all()
 
+    # 列表用的複本套三種篩選（summary 仍算未篩選的 subs）
     rows = list(subs)
     if status and status != "ALL":
         rows = [s for s in rows if s.status == status]
@@ -304,6 +321,7 @@ def list_submissions(
 
 
 def get_submission_or_404(db: Session, submission_id: int) -> VideoSubmission:
+    """以 id 取上傳紀錄，不存在回 404。"""
     sub = db.get(VideoSubmission, submission_id)
     if not sub:
         raise HTTPException(status_code=404, detail="上傳紀錄不存在")
@@ -311,6 +329,7 @@ def get_submission_or_404(db: Session, submission_id: int) -> VideoSubmission:
 
 
 def get_submission_detail(db: Session, submission_id: int) -> SubmissionDetailOut:
+    """審核頁的完整資料組裝（病患/計畫/動作/分析/審核狀態 + 歷次分數）。"""
     sub = get_submission_or_404(db, submission_id)
     patient = sub.patient
     item = sub.plan_item
@@ -376,6 +395,7 @@ def review_submission(
     if data.decision not in ("APPROVED", "NEEDS_ATTENTION"):
         raise HTTPException(status_code=422, detail="無效的審核結果")
 
+    # 寫入審核結果：狀態轉 REVIEWED、記錄審核者與時間
     sub.status = "REVIEWED"
     sub.decision = data.decision
     sub.feedback = data.feedback
@@ -388,6 +408,8 @@ def review_submission(
 # ---- 回報醫生 ----
 
 def create_report(db: Session, nurse: User, data: NurseReportCreate) -> NurseReport:
+    """護理師建立給醫生的回報（初始狀態 PENDING_DOCTOR_REVIEW）。"""
+    # 驗證目標計畫存在、回報類型合法
     plan = db.get(RehabPlan, data.plan_id)
     if not plan:
         raise HTTPException(status_code=404, detail="復健計畫不存在")
@@ -408,6 +430,7 @@ def create_report(db: Session, nurse: User, data: NurseReportCreate) -> NurseRep
 
 
 def list_reports(db: Session, nurse: User) -> list[NurseReport]:
+    """我送出過的回報（新到舊）。"""
     return (
         db.query(NurseReport)
         .filter(NurseReport.nurse_id == nurse.id)
@@ -419,6 +442,7 @@ def list_reports(db: Session, nurse: User) -> list[NurseReport]:
 # ---- 動作管理 ----
 
 def _get_current_version(db: Session, plan_id: int):
+    """取計畫與其目前版本；缺任一即擋（動作維護的共同前置檢查）。"""
     plan = db.get(RehabPlan, plan_id)
     if not plan:
         raise HTTPException(status_code=404, detail="復健計畫不存在")
@@ -429,6 +453,7 @@ def _get_current_version(db: Session, plan_id: int):
 
 
 def get_plan_for_items(db: Session, plan_id: int) -> dict:
+    """動作管理頁的資料：計畫摘要 + 目前版本的目標與動作清單。"""
     plan, current = _get_current_version(db, plan_id)
     return {
         "plan_id": plan.id,
@@ -444,9 +469,11 @@ def get_plan_for_items(db: Session, plan_id: int) -> dict:
 
 
 def add_plan_item(db: Session, plan_id: int, data: PlanItemCreate) -> dict:
+    """在目前版本新增動作項目（護理師逐項維護，不產生新版本）。"""
     plan, current = _get_current_version(db, plan_id)
     if plan.status not in common.ACTIVE_PLAN_STATUSES:
         raise HTTPException(status_code=400, detail="計畫已結束，無法新增動作")
+    # 有指定導師影片時驗證其存在且已完成萃取
     if data.teacher_video_id is not None:
         common.get_selectable_teacher_video(db, data.teacher_video_id)
     item = PlanItem(version_id=current.id, **data.model_dump())
@@ -456,12 +483,15 @@ def add_plan_item(db: Session, plan_id: int, data: PlanItemCreate) -> dict:
 
 
 def update_plan_item(db: Session, plan_id: int, item_id: int, data: PlanItemUpdate) -> dict:
+    """部分更新動作項目（只動有帶的欄位；teacher_video_id 傳 null 可解除綁定）。"""
     plan, current = _get_current_version(db, plan_id)
     if plan.status not in common.ACTIVE_PLAN_STATUSES:
         raise HTTPException(status_code=400, detail="計畫已結束，無法修改動作")
+    # item 必須屬於目前版本——歷史版本的項目是唯讀快照
     item = db.get(PlanItem, item_id)
     if not item or item.version_id != current.id:
         raise HTTPException(status_code=404, detail="動作項目不存在")
+    # exclude_unset：沒帶的欄位不動；新綁定的導師影片需通過可選用驗證
     changes = data.model_dump(exclude_unset=True)
     if changes.get("teacher_video_id") is not None:
         common.get_selectable_teacher_video(db, changes["teacher_video_id"])
@@ -472,12 +502,15 @@ def update_plan_item(db: Session, plan_id: int, item_id: int, data: PlanItemUpda
 
 
 def delete_plan_item(db: Session, plan_id: int, item_id: int) -> dict:
+    """刪除目前版本的動作項目（已有上傳紀錄的動作不可刪，保護歷史對照）。"""
     plan, current = _get_current_version(db, plan_id)
     if plan.status not in common.ACTIVE_PLAN_STATUSES:
         raise HTTPException(status_code=400, detail="計畫已結束，無法刪除動作")
     item = db.get(PlanItem, item_id)
     if not item or item.version_id != current.id:
         raise HTTPException(status_code=404, detail="動作項目不存在")
+    # 有上傳引用的動作不能刪：submissions.plan_item_id 是 FK，
+    # 刪了會讓歷史影片對不回「當時做的是哪個動作」
     has_submissions = (
         db.query(VideoSubmission).filter(VideoSubmission.plan_item_id == item_id).count()
     )
@@ -491,6 +524,7 @@ def delete_plan_item(db: Session, plan_id: int, item_id: int) -> dict:
 # ---- 導師影片 ----
 
 def teacher_video_to_out(tv: TeacherVideo) -> TeacherVideoOut:
+    """TeacherVideo ORM → 回應結構（含萃取/標註狀態）。"""
     return TeacherVideoOut(
         id=tv.id,
         name=tv.name,
@@ -508,6 +542,7 @@ def teacher_video_to_out(tv: TeacherVideo) -> TeacherVideoOut:
 
 
 def get_teacher_video_or_404(db: Session, teacher_video_id: int) -> TeacherVideo:
+    """以 id 取導師影片，不存在回 404。"""
     tv = db.get(TeacherVideo, teacher_video_id)
     if not tv:
         raise HTTPException(status_code=404, detail="導師影片不存在")
@@ -631,6 +666,7 @@ def reextract_teacher_video(db: Session, teacher_video_id: int) -> TeacherVideoO
 # ---- 導師影片資料夾 ----
 
 def get_folder_or_404(db: Session, folder_id: int) -> TeacherVideoFolder:
+    """以 id 取資料夾，不存在回 404。"""
     folder = db.get(TeacherVideoFolder, folder_id)
     if not folder:
         raise HTTPException(status_code=404, detail="資料夾不存在")
@@ -638,6 +674,7 @@ def get_folder_or_404(db: Session, folder_id: int) -> TeacherVideoFolder:
 
 
 def _clean_folder_name(db: Session, name: str, exclude_id: int | None = None) -> str:
+    """資料夾名稱正規化 + 撞名檢查（改名時以 exclude_id 排除自己）。"""
     clean = name.strip()
     if not clean:
         raise HTTPException(status_code=422, detail="請輸入資料夾名稱")
@@ -650,6 +687,7 @@ def _clean_folder_name(db: Session, name: str, exclude_id: int | None = None) ->
 
 
 def _folder_to_out(folder: TeacherVideoFolder, video_count: int) -> TeacherVideoFolderOut:
+    """Folder ORM → 回應結構（影片數由呼叫端算好傳入）。"""
     return TeacherVideoFolderOut(
         id=folder.id,
         name=folder.name,
@@ -659,6 +697,7 @@ def _folder_to_out(folder: TeacherVideoFolder, video_count: int) -> TeacherVideo
 
 
 def list_teacher_video_folders(db: Session) -> list[TeacherVideoFolderOut]:
+    """全部資料夾（名稱排序）。影片數用一次 group by 算齊，避免逐夾 count。"""
     counts = dict(
         db.query(TeacherVideo.folder_id, func.count(TeacherVideo.id))
         .filter(TeacherVideo.folder_id.isnot(None))
@@ -674,6 +713,7 @@ def list_teacher_video_folders(db: Session) -> list[TeacherVideoFolderOut]:
 def create_teacher_video_folder(
     db: Session, data: TeacherVideoFolderIn
 ) -> TeacherVideoFolderOut:
+    """建立資料夾（名稱唯一）。"""
     folder = TeacherVideoFolder(name=_clean_folder_name(db, data.name))
     db.add(folder)
     db.commit()
@@ -683,6 +723,7 @@ def create_teacher_video_folder(
 def rename_teacher_video_folder(
     db: Session, folder_id: int, data: TeacherVideoFolderIn
 ) -> TeacherVideoFolderOut:
+    """資料夾改名（撞名檢查排除自己）。"""
     folder = get_folder_or_404(db, folder_id)
     folder.name = _clean_folder_name(db, data.name, exclude_id=folder.id)
     db.commit()
@@ -706,6 +747,7 @@ def delete_teacher_video_folder(db: Session, folder_id: int) -> dict:
 # ---- 導師影片標註 ----
 
 def get_annotation(db: Session, teacher_video_id: int) -> AnnotationOut:
+    """標註頁資料：影片參數 + 現有標註幀（未標註過回空清單）。"""
     tv = get_teacher_video_or_404(db, teacher_video_id)
     return AnnotationOut(
         teacher_video_id=tv.id,
@@ -719,7 +761,9 @@ def get_annotation(db: Session, teacher_video_id: int) -> AnnotationOut:
 def submit_annotation(
     db: Session, teacher_video_id: int, data: AnnotationSubmit
 ) -> AnnotationOut:
+    """送出重點動作幀標註並排入 annotation JSON 產生任務。"""
     tv = get_teacher_video_or_404(db, teacher_video_id)
+    # 標註以幀號指涉影片內容，必須等萃取（轉檔後幀數已定）完成才有意義
     if tv.extraction_status != "EXTRACTED":
         raise HTTPException(status_code=409, detail="影片尚未完成 2D/3D 萃取，無法標註")
     # 去重排序：標註順序由幀號決定，前端送來的順序不可信

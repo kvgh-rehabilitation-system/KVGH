@@ -26,13 +26,18 @@ _COLUMNS: list[tuple[str, str, str]] = [
 def ensure_schema(engine: Engine) -> None:
     """冪等補齊宣告清單中的缺欄位（在 create_all 之後呼叫）。"""
     inspector = inspect(engine)
+    # 各表現有欄位的快取：同一張表多個宣告欄位只需查一次 schema
     existing: dict[str, set[str]] = {}
+    # engine.begin()：整批 ALTER 包在同一交易，中途失敗全部回滾
     with engine.begin() as conn:
         for table, column, ddl_type in _COLUMNS:
+            # 第一次遇到這張表 → 向 DB 查現有欄位清單
             if table not in existing:
                 existing[table] = {c["name"] for c in inspector.get_columns(table)}
+            # 欄位已存在 → 跳過（冪等的關鍵）
             if column in existing[table]:
                 continue
+            # 補上缺少的欄位，並更新快取讓後續判斷一致
             conn.execute(
                 text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl_type}")
             )

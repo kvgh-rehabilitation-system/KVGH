@@ -26,15 +26,19 @@ def get_current_user(
 ) -> User:
     """驗 Bearer token 並回傳 DB 中的 User；停用帳號回 403（非 401，
     讓前端可區分「請重新登入」與「帳號被停用」）。"""
+    # 沒帶 Authorization header → 未登入
     if credentials is None:
         raise HTTPException(status_code=401, detail="未登入")
+    # 驗簽章與效期；PyJWTError 涵蓋過期、篡改、格式錯誤等所有失敗情況
     try:
         payload = decode_access_token(credentials.credentials)
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="登入已過期，請重新登入")
+    # 以 token 的 sub（username）回查 DB——帳號可能在 token 簽發後被刪除
     user = db.query(User).filter(User.username == payload.get("sub")).first()
     if not user:
         raise HTTPException(status_code=401, detail="使用者不存在")
+    # 停用檢查即時看 DB，讓 admin 停用能立刻生效（不用等 token 過期）
     if not user.is_active:
         raise HTTPException(status_code=403, detail="帳號已被停用，請聯絡管理員")
     return user
@@ -71,6 +75,7 @@ def get_user_flexible(
     raw = credentials.credentials if credentials else token
     if not raw:
         raise HTTPException(status_code=401, detail="未登入")
+    # 以下驗證流程與 get_current_user 完全一致：驗簽 → 回查 DB → 擋停用
     try:
         payload = decode_access_token(raw)
     except jwt.PyJWTError:

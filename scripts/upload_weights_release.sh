@@ -5,10 +5,12 @@
 set -euo pipefail
 : "${GITHUB_TOKEN:?請先 export GITHUB_TOKEN=<你的 PAT，需 repo Contents 寫入權限>}"
 
+# 目標 repo/tag 與 API 基底；AUTH 陣列讓每個 curl 共用同一組認證 header
 REPO="${REPO:-kvgh-rehabilitation-system/KVGH}"
 TAG="${TAG:-weights-v1}"
 API="https://api.github.com/repos/$REPO"
 AUTH=(-H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json")
+# 權重來源目錄與 manifest 都以腳本位置定位（不依賴執行時的 cwd）
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ENGINE_ROOT="${ENGINE_ROOT:-$SCRIPT_DIR/../algorithm/2D_and_3D_project}"
 MANIFEST="${MANIFEST:-$SCRIPT_DIR/weights_manifest.txt}"
@@ -40,6 +42,7 @@ grep -v '^#' "$MANIFEST" | while IFS=' ' read -r asset sha size target; do
         echo "已存在，跳過：$asset"
         continue
     fi
+    # 資產上傳走 uploads.github.com（與 api.github.com 是不同主機）
     src="$ENGINE_ROOT/$target"
     echo "上傳 $asset（$(du -h "$src" | cut -f1)）..."
     curl -fS --progress-bar "${AUTH[@]}" -H "Content-Type: application/octet-stream" \

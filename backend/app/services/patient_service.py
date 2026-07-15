@@ -20,6 +20,7 @@ from app.services import common, media_service, task_queue
 
 
 def get_patient_by_user(db: Session, user: User) -> Patient:
+    """登入帳號 → 對應的 Patient 列（所有病患端查詢的起點與安全邊界）。"""
     patient = db.query(Patient).filter(Patient.user_id == user.id).first()
     if not patient:
         raise HTTPException(status_code=404, detail="找不到病患資料")
@@ -27,10 +28,12 @@ def get_patient_by_user(db: Session, user: User) -> Patient:
 
 
 def get_dashboard(db: Session, user: User) -> PatientDashboardOut:
+    """病患入口首頁：目前計畫、本週完成度、最新分數/回饋與雙趨勢。"""
     patient = get_patient_by_user(db, user)
     last_visit = common.get_last_visit(patient)
     active_plan = common.get_active_plan(patient)
 
+    # 無有效計畫時全部維持零值/空清單（新病患或計畫已結束）
     week_completed = 0
     week_prescribed = 0
     latest_score = None
@@ -42,6 +45,7 @@ def get_dashboard(db: Session, user: User) -> PatientDashboardOut:
 
     if active_plan:
         subs = common.plan_submissions(db, active_plan.id)
+        # 本週（週一起算）已上傳次數 vs 處方次數
         today = date.today()
         week_start = today - timedelta(days=today.weekday())
         week_completed = sum(1 for s in subs if s.submitted_at.date() >= week_start)
@@ -49,11 +53,13 @@ def get_dashboard(db: Session, user: User) -> PatientDashboardOut:
         score_trend = common.score_trend(subs)
         completion_trend = common.completion_trend(active_plan, subs)
 
+        # 最新分數與最近上傳日（subs 已依上傳時間排序）
         analyzed = [s for s in subs if s.analysis]
         if analyzed:
             latest_score = analyzed[-1].analysis.overall_score
         if subs:
             last_submission_date = subs[-1].submitted_at.date()
+        # 最新一筆有護理師回饋的審核（依審核時間取最新）
         reviewed = [s for s in subs if s.feedback]
         if reviewed:
             latest = max(reviewed, key=lambda s: s.reviewed_at)
@@ -82,6 +88,7 @@ def get_dashboard(db: Session, user: User) -> PatientDashboardOut:
 
 
 def list_visits(db: Session, user: User) -> list[VisitOut]:
+    """我的看診紀錄（已完成，新到舊）。"""
     patient = get_patient_by_user(db, user)
     visits = sorted(
         [v for v in patient.visits if v.status == "COMPLETED"],
@@ -92,6 +99,7 @@ def list_visits(db: Session, user: User) -> list[VisitOut]:
 
 
 def list_plans(db: Session, user: User) -> list[dict]:
+    """我的復健計畫列表（新到舊，含目標與動作數摘要）。"""
     patient = get_patient_by_user(db, user)
     plans = sorted(patient.plans, key=lambda p: p.start_date, reverse=True)
     result = []
@@ -116,6 +124,8 @@ def list_plans(db: Session, user: User) -> list[dict]:
 
 
 def get_plan_detail(db: Session, user: User, plan_id: int) -> dict:
+    """我的計畫詳細頁：動作清單 + 本週完成度 + 雙趨勢 + 上傳紀錄。"""
+    # 只能看自己的計畫：從自己的 plans 找，找不到一律 404（不洩漏存在性）
     patient = get_patient_by_user(db, user)
     plan = next((p for p in patient.plans if p.id == plan_id), None)
     if not plan:
@@ -124,6 +134,7 @@ def get_plan_detail(db: Session, user: User, plan_id: int) -> dict:
     current = plan.current_version
     subs = common.plan_submissions(db, plan.id)
 
+    # 本週（週一起算）完成度
     today = date.today()
     week_start = today - timedelta(days=today.weekday())
     week_completed = sum(1 for s in subs if s.submitted_at.date() >= week_start)
@@ -205,6 +216,7 @@ def create_submission(
             detail="此動作的導師影片尚未就緒（需完成上傳、萃取與重點動作標註），請聯絡護理師",
         )
 
+    # 建上傳紀錄：teacher_video_id 存「上傳當下」的綁定作為比對快照
     sub = VideoSubmission(
         plan_id=plan.id,
         plan_version_id=current.id,
@@ -217,6 +229,7 @@ def create_submission(
     db.add(sub)
     db.flush()  # 先取得 id 決定存放目錄與檔名
 
+    # 存原始檔到 submissions/{id}/，再 commit 讓 worker 看得到紀錄
     rel_path, original_name = media_service.save_upload(
         upload, media_service.submission_dir(sub.id)
     )
@@ -224,6 +237,7 @@ def create_submission(
     sub.original_filename = original_name
     db.commit()
 
+    # 排入 轉檔 → 萃取 → 比對 pipeline，回填 task id 供監控
     task_id = task_queue.enqueue_submission_pipeline(sub.id, tv.id)
     sub.celery_task_id = task_id
     db.commit()
@@ -231,6 +245,7 @@ def create_submission(
 
 
 def _get_own_submission(db: Session, user: User, submission_id: int) -> VideoSubmission:
+    """取自己的上傳紀錄；別人的與不存在的一律 404（不洩漏存在性）。"""
     patient = get_patient_by_user(db, user)
     sub = db.get(VideoSubmission, submission_id)
     if not sub or sub.patient_id != patient.id:
@@ -239,6 +254,7 @@ def _get_own_submission(db: Session, user: User, submission_id: int) -> VideoSub
 
 
 def get_submission_status(db: Session, user: User, submission_id: int) -> SubmissionStatusOut:
+    """上傳後的進度輪詢端點（前端定時打，直到 DONE/FAILED）。"""
     sub = _get_own_submission(db, user, submission_id)
     return SubmissionStatusOut(
         id=sub.id,

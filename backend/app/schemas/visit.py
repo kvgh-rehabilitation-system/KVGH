@@ -6,6 +6,8 @@ from pydantic import BaseModel
 
 
 class VisitOut(BaseModel):
+    """看診紀錄回應（含醫生姓名，前端不需再查）。"""
+
     id: int
     visit_date: date
     status: str
@@ -19,6 +21,8 @@ class VisitOut(BaseModel):
 
 
 class VisitCreate(BaseModel):
+    """醫生完成看診的表單（主訴/診斷/評估/復健決策皆必填）。"""
+
     chief_complaint: str
     diagnosis: str
     assessment: str

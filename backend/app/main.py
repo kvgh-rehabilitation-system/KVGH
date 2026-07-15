@@ -20,6 +20,8 @@ def create_app() -> FastAPI:
     Base.metadata.create_all(bind=engine)
     ensure_schema(engine)
 
+    # CORS：容器部署時前端經 nginx 反代同源、不觸發 CORS，
+    # 這裡放行的是「本機 vite dev（5173）直連後端」的開發情境
     app = FastAPI(title=settings.APP_NAME)
     app.add_middleware(
         CORSMiddleware,
@@ -29,6 +31,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # 六個角色/功能 router，各自帶 /api/{角色} prefix 與權限依賴
     app.include_router(admin.router)
     app.include_router(auth.router)
     app.include_router(doctor.router)
@@ -36,6 +39,7 @@ def create_app() -> FastAPI:
     app.include_router(patient.router)
     app.include_router(media.router)
 
+    # 無認證的健康檢查端點（容器監控、部署驗證用）
     @app.get("/api/health")
     def health():
         return {"status": "ok"}
