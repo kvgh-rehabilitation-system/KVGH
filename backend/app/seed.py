@@ -21,8 +21,11 @@ from app.models.submission import AnalysisResult, NurseReport, VideoSubmission
 from app.models.user import User
 from app.models.visit import Visit
 
+# 所有假資料日期以「執行當天」相對回推——重跑 seed 永遠有今日資料可示範
 TODAY = date.today()
+# bcrypt 很慢，26 個帳號共用同一組雜湊（密碼一律 1234）
 PASSWORD_HASH = hash_password("1234")
+# 固定種子讓每次 seed 產生完全相同的假資料（可重現的示範環境）
 RNG = random.Random(42)
 
 # (name, frequency, times_per_week, description, precaution, example_video_url, example_video_note)
@@ -77,6 +80,7 @@ JOINT_LABELS = {
 
 
 def user(db: Session, username: str, role: str, name: str, title: str | None = None) -> User:
+    """建一個登入帳號（flush 取得 id 供後續 FK 引用）。"""
     u = User(username=username, password_hash=PASSWORD_HASH, role=role, name=name, title=title)
     db.add(u)
     db.flush()
@@ -92,6 +96,7 @@ def patient(
     gender: str,
     phone: str,
 ) -> Patient:
+    """建病患：User 帳號 + 一對一的 Patient 病歷主檔。"""
     u = user(db, username, "patient", name)
     p = Patient(
         user_id=u.id,
@@ -119,6 +124,7 @@ def visit(
     follow_up_days: int | None = None,
     status: str = "COMPLETED",
 ) -> Visit:
+    """建看診紀錄（days_ago 相對今日）。status=WAITING 時臨床欄位留空（尚未看診）。"""
     d = TODAY - timedelta(days=days_ago)
     v = Visit(
         patient_id=p.id,
@@ -138,6 +144,7 @@ def visit(
 
 
 def _add_items(db: Session, version_id: int, items: list[tuple]) -> None:
+    """把動作 tuple 清單展開成 PlanItem 列（tuple 欄位順序見檔頭常數註解）。"""
     for n, f, tpw, desc, pre, url, note in items:
         db.add(
             PlanItem(
@@ -166,7 +173,11 @@ def plan(
     items: list[tuple],
     adjust: dict | None = None,
 ) -> RehabPlan:
-    """adjust: {"days_ago": n, "summary": str, "items": [...], "goals": [...]}（建立 V2）"""
+    """建計畫（含 V1；傳 adjust 時再建 V2 模擬「醫生調整過」的計畫）。
+
+    adjust: {"days_ago": n, "summary": str, "items": [...], "goals": [...]}
+    ——V1 於 n 天前結束、V2 同日生效（is_current 由 adjust 有無決定）。
+    """
     start = TODAY - timedelta(days=start_days_ago)
     pl = RehabPlan(
         patient_id=p.id,
@@ -210,6 +221,7 @@ def plan(
 
 
 def current_version(db: Session, pl: RehabPlan) -> PlanVersion:
+    """取計畫目前生效的版本（上傳紀錄要掛在正確版本底下）。"""
     return (
         db.query(PlanVersion)
         .filter(PlanVersion.plan_id == pl.id, PlanVersion.is_current.is_(True))
@@ -303,6 +315,7 @@ def add_submission(
     db.add(sub)
     db.flush()
 
+    # 有分數就建假分析結果：三個子分數在總分附近抖動、夾在 [30, 99]
     if score is not None:
         jitter = lambda: RNG.uniform(-4, 4)  # noqa: E731
         clamp = lambda v: round(max(30, min(99, v)), 1)  # noqa: E731
@@ -322,6 +335,7 @@ def add_submission(
             )
         )
 
+    # 已審核的補上審核欄位：decision 未指定時依分數自動判（65 分為界）
     if status == "REVIEWED":
         if decision is None:
             decision = "APPROVED" if (score or 0) >= 65 else "NEEDS_ATTENTION"
@@ -377,6 +391,7 @@ def report(
     status: str = "PENDING_DOCTOR_REVIEW",
     doctor_comment: str | None = None,
 ) -> NurseReport:
+    """建護理師回報（預設待醫生審閱；傳 status/doctor_comment 可造已處理的範例）。"""
     r = NurseReport(
         plan_id=pl.id,
         submission_id=submission.id if submission else None,
@@ -395,17 +410,21 @@ def report(
 
 
 def main() -> None:
+    """入口：建表 → 防重複檢查 → 建帳號（--demo 加建假臨床資料）→ 一次 commit。"""
+    # 獨立執行（python -m app.seed）時也要保證 schema 存在
     Base.metadata.create_all(bind=engine)
     ensure_schema(engine)
     demo = "--demo" in sys.argv
     db = SessionLocal()
     try:
+        # 防重複機制：只要有任何帳號就整批跳過（entrypoint 每次啟動都會跑本腳本）
         if db.query(User).count() > 0:
             print("資料庫已有資料，略過 seeding。")
             return
         staff, patients = seed_accounts(db)
         if demo:
             seed_demo(db, staff, patients)
+        # 全程只 flush 不 commit，最後一次提交——中途失敗即全部回滾，不留半套資料
         db.commit()
         print(
             "Seed 完成（{}）。帳號：admin01 / doctor01-03 / nurse01-03 / patient01-20，密碼 1234".format(

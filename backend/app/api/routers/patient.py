@@ -1,3 +1,8 @@
+"""病患入口路由（/api/patient/*，全端點掛 require_patient）。
+
+所有資料都以登入者本人為界（service 層驗歸屬），病患看不到別人的資料。
+"""
+
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.orm import Session
 
@@ -14,16 +19,19 @@ router = APIRouter(prefix="/api/patient", tags=["patient"])
 
 @router.get("/dashboard", response_model=PatientDashboardOut)
 def dashboard(user: User = Depends(require_patient), db: Session = Depends(get_db)):
+    """病患首頁（目前計畫、本週完成度、最新分數/回饋與趨勢）。"""
     return patient_service.get_dashboard(db, user)
 
 
 @router.get("/visits", response_model=list[VisitOut])
 def my_visits(user: User = Depends(require_patient), db: Session = Depends(get_db)):
+    """我的看診紀錄。"""
     return patient_service.list_visits(db, user)
 
 
 @router.get("/rehabilitation-plans")
 def my_plans(user: User = Depends(require_patient), db: Session = Depends(get_db)):
+    """我的復健計畫列表。"""
     return patient_service.list_plans(db, user)
 
 
@@ -31,6 +39,7 @@ def my_plans(user: User = Depends(require_patient), db: Session = Depends(get_db
 def plan_detail(
     plan_id: int, user: User = Depends(require_patient), db: Session = Depends(get_db)
 ):
+    """我的計畫詳細頁（動作清單 + 完成度 + 上傳紀錄）。"""
     return patient_service.get_plan_detail(db, user, plan_id)
 
 

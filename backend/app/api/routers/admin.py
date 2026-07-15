@@ -1,3 +1,9 @@
+"""admin 端路由（/api/admin/*，全端點掛 require_admin）。
+
+帳號 CRUD（軟刪除優先）、系統總覽、分析任務監控。
+不需要 user 本人的端點以 `_` 接依賴（只為觸發權限檢查）。
+"""
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -28,6 +34,7 @@ def list_users(
     _: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
+    """帳號列表（可依角色/關鍵字篩選、隱藏停用帳號）。"""
     return admin_service.list_users(db, role=role, search=search, include_inactive=include_inactive)
 
 
@@ -37,6 +44,7 @@ def create_user(
     _: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
+    """建立帳號（patient 角色連動建立病歷主檔；不開放建立 admin）。"""
     return admin_service.create_user(db, data)
 
 
@@ -47,6 +55,7 @@ def update_user(
     _: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
+    """更新帳號基本資料（禁改 role）。"""
     return admin_service.update_user(db, user_id, data)
 
 
@@ -57,6 +66,7 @@ def reset_password(
     _: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
+    """重設密碼（body 可省略，預設重設為 1234）。"""
     new_password = data.new_password if data else "1234"
     return admin_service.reset_password(db, user_id, new_password)
 
@@ -68,6 +78,7 @@ def set_active(
     user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
+    """停用/啟用帳號（不能停用 admin 或自己）。"""
     return admin_service.set_active(db, user, user_id, data.is_active)
 
 
@@ -77,6 +88,7 @@ def delete_user(
     user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
+    """刪除帳號——有臨床關聯時自動降級為停用（軟刪除優先）。"""
     return admin_service.delete_user(db, user, user_id)
 
 
@@ -84,6 +96,7 @@ def delete_user(
 
 @router.get("/overview", response_model=AdminOverviewOut)
 def overview(_: User = Depends(require_admin), db: Session = Depends(get_db)):
+    """系統總覽（帳號統計/分析狀態計數/磁碟用量）。"""
     return admin_service.get_overview(db)
 
 
@@ -97,6 +110,7 @@ def list_tasks(
     _: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
+    """分析任務監控列表（分頁 + 全域狀態計數）。"""
     return admin_service.list_tasks(
         db, analysis_status=analysis_status, page=page, page_size=page_size
     )
@@ -108,4 +122,5 @@ def reanalyze(
     _: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
+    """重新排入分析（複用 nurse 端邏輯，冪等）。"""
     return admin_service.reanalyze_submission(db, submission_id)

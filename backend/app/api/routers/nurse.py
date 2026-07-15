@@ -1,3 +1,9 @@
+"""護理師端路由（/api/nurse/*，全端點掛 require_nurse）。
+
+router 只做參數綁定與權限依賴，商業邏輯都在 nurse_service；
+計畫詳細/上傳紀錄兩個唯讀端點直接複用 doctor_service（同一份資料兩種角色看）。
+"""
+
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.orm import Session
 
@@ -28,6 +34,7 @@ router = APIRouter(prefix="/api/nurse", tags=["nurse"])
 
 @router.get("/dashboard", response_model=NurseDashboardOut)
 def dashboard(user: User = Depends(require_nurse), db: Session = Depends(get_db)):
+    """護理師首頁儀表板（摘要計數 + 待審佇列 + 需注意病患）。"""
     return nurse_service.get_dashboard(db, user)
 
 
@@ -49,6 +56,7 @@ def my_patients(
 def patient_detail(
     patient_id: int, user: User = Depends(require_nurse), db: Session = Depends(get_db)
 ):
+    """護理師端病患詳細頁（含目前計畫的動作清單）。"""
     return nurse_service.get_patient_detail_for_nurse(db, user, patient_id)
 
 
@@ -56,6 +64,7 @@ def patient_detail(
 def plan_detail(
     plan_id: int, user: User = Depends(require_nurse), db: Session = Depends(get_db)
 ):
+    """計畫詳細（唯讀，與醫生端共用同一 service）。"""
     return doctor_service.get_plan_detail(db, plan_id)
 
 
@@ -63,6 +72,7 @@ def plan_detail(
 def plan_submissions(
     plan_id: int, user: User = Depends(require_nurse), db: Session = Depends(get_db)
 ):
+    """計畫的上傳紀錄與趨勢（唯讀，與醫生端共用同一 service）。"""
     return doctor_service.get_plan_submissions(db, plan_id)
 
 
@@ -76,6 +86,7 @@ def list_submissions(
     user: User = Depends(require_nurse),
     db: Session = Depends(get_db),
 ):
+    """審核佇列（我負責計畫的上傳；可依狀態/審核結果/關鍵字篩選）。"""
     return nurse_service.list_submissions(db, user, status, decision, search)
 
 
@@ -83,6 +94,7 @@ def list_submissions(
 def submission_detail(
     submission_id: int, user: User = Depends(require_nurse), db: Session = Depends(get_db)
 ):
+    """審核頁的完整資料（病患/計畫/動作/分析/審核狀態 + 歷次分數）。"""
     return nurse_service.get_submission_detail(db, submission_id)
 
 
@@ -105,11 +117,13 @@ def review_submission(
     user: User = Depends(require_nurse),
     db: Session = Depends(get_db),
 ):
+    """送出審核結果（APPROVED / NEEDS_ATTENTION + 回饋文字）。"""
     return nurse_service.review_submission(db, user, submission_id, data)
 
 
 @router.get("/reports", response_model=list[NurseReportOut])
 def list_reports(user: User = Depends(require_nurse), db: Session = Depends(get_db)):
+    """我送出過的回報醫生紀錄（新到舊）。"""
     return [common.report_to_out(r) for r in nurse_service.list_reports(db, user)]
 
 
@@ -119,6 +133,7 @@ def create_report(
     user: User = Depends(require_nurse),
     db: Session = Depends(get_db),
 ):
+    """建立回報醫生（狀況回報/調整建議/異常）。"""
     report = nurse_service.create_report(db, user, data)
     return common.report_to_out(report)
 
@@ -129,6 +144,7 @@ def create_report(
 def plan_items(
     plan_id: int, user: User = Depends(require_nurse), db: Session = Depends(get_db)
 ):
+    """動作管理頁資料（計畫摘要 + 目前版本的動作清單）。"""
     return nurse_service.get_plan_for_items(db, plan_id)
 
 
@@ -139,6 +155,7 @@ def add_plan_item(
     user: User = Depends(require_nurse),
     db: Session = Depends(get_db),
 ):
+    """在目前版本新增動作項目。"""
     return nurse_service.add_plan_item(db, plan_id, data)
 
 
@@ -150,6 +167,7 @@ def update_plan_item(
     user: User = Depends(require_nurse),
     db: Session = Depends(get_db),
 ):
+    """部分更新動作項目（沒帶的欄位不動）。"""
     return nurse_service.update_plan_item(db, plan_id, item_id, data)
 
 
@@ -160,6 +178,7 @@ def delete_plan_item(
     user: User = Depends(require_nurse),
     db: Session = Depends(get_db),
 ):
+    """刪除動作項目（已有上傳紀錄者不可刪）。"""
     return nurse_service.delete_plan_item(db, plan_id, item_id)
 
 
@@ -265,6 +284,7 @@ def create_teacher_video_folder(
     user: User = Depends(require_nurse),
     db: Session = Depends(get_db),
 ):
+    """建立影片庫資料夾（名稱不可重複）。"""
     return nurse_service.create_teacher_video_folder(db, data)
 
 
@@ -277,6 +297,7 @@ def rename_teacher_video_folder(
     user: User = Depends(require_nurse),
     db: Session = Depends(get_db),
 ):
+    """資料夾改名。"""
     return nurse_service.rename_teacher_video_folder(db, folder_id, data)
 
 
@@ -300,6 +321,7 @@ def get_annotation(
     user: User = Depends(require_nurse),
     db: Session = Depends(get_db),
 ):
+    """標註頁資料（影片參數 + 現有標註幀）。"""
     return nurse_service.get_annotation(db, teacher_video_id)
 
 

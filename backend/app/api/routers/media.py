@@ -25,6 +25,7 @@ def stream_teacher_video(
     user: User = Depends(get_user_flexible),
     db: Session = Depends(get_db),
 ):
+    """串流導師影片（任何登入角色可看——病患需要看範例動作）。"""
     tv = db.get(TeacherVideo, teacher_video_id)
     if not tv:
         raise HTTPException(status_code=404, detail="導師影片不存在")
@@ -34,9 +35,11 @@ def stream_teacher_video(
 def _get_viewable_submission(
     db: Session, user: User, submission_id: int
 ) -> VideoSubmission:
+    """病患影片的觀看權限：醫護全可看，病患只能看自己的。"""
     sub = db.get(VideoSubmission, submission_id)
     if not sub:
         raise HTTPException(status_code=404, detail="上傳紀錄不存在")
+    # 只有 patient 角色需要驗歸屬（doctor/nurse/admin 屬醫護端全可看）
     if user.role == "patient":
         patient = db.query(Patient).filter(Patient.user_id == user.id).first()
         if not patient or sub.patient_id != patient.id:
@@ -51,6 +54,7 @@ def stream_submission_video(
     user: User = Depends(get_user_flexible),
     db: Session = Depends(get_db),
 ):
+    """串流病患上傳的原始影片（轉檔後的 s{id}.mp4）。"""
     sub = _get_viewable_submission(db, user, submission_id)
     return media_service.stream_video(request, sub.video_path)
 
