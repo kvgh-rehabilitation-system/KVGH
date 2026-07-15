@@ -95,6 +95,9 @@ def stream_video(request: Request, rel_path: str | None):
     status_code = 200
     if range_header:
         match = _RANGE_RE.match(range_header)
+        # 解析不了的 Range 一律回 200 整檔（寬鬆處理，瀏覽器可自行重試）
+        # FIXME: 未支援後綴語法「bytes=-N」（最後 N bytes）——目前會被誤解成
+        # 「前 N+1 bytes」。主流瀏覽器播 mp4 不用此語法，故暫可接受
         if match:
             if match.group(1):
                 start = int(match.group(1))

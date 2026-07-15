@@ -1,3 +1,11 @@
+"""醫生端商業邏輯：看診、病患總覽、復健計畫生命週期、護理師回報審閱。
+
+範圍慣例：儀表板與回報列表以「我的」（doctor_id/計畫歸屬）為界；
+病患列表、計畫列表與單筆操作跨醫生共享（同科醫生可互看互操作）。
+計畫生命週期：create_plan（唯一有效計畫）→ adjust_plan（版本快照遞增）
+→ close_plan / create_visit 的 END_PLAN 決策關閉。
+"""
+
 from datetime import date, timedelta
 
 from fastapi import HTTPException
@@ -34,6 +42,7 @@ from app.services import common
 
 
 def get_dashboard(db: Session, doctor: User) -> DoctorDashboardOut:
+    """醫生首頁：今日看診名單 + 計畫評估提醒 + 待審閱的護理師回報。"""
     today = date.today()
     today_visits = (
         db.query(Visit)
@@ -134,6 +143,8 @@ def list_patients(
 
     result = []
     for p in patients:
+        # visit_type / rehab_status 是衍生值（算自關聯資料），
+        # 無法下推到 SQL，只能建完 item 後在 Python 過濾
         last = common.get_last_visit(p)
         status = common.get_rehab_status(p)
         item = PatientListItem(
@@ -203,7 +214,13 @@ def list_patient_visits(db: Session, patient_id: int) -> list[VisitOut]:
 
 
 def create_visit(db: Session, patient_id: int, doctor: User, data: VisitCreate) -> Visit:
+    """完成一次看診（upsert 語意）並套用復健決策。
+
+    END_PLAN 在此直接關閉有效計畫；CREATE_PLAN/ADJUST_PLAN 只記錄決策，
+    實際建立/調整由前端導向計畫表單另呼叫 create_plan/adjust_plan。
+    """
     patient = common.get_patient_or_404(db, patient_id)
+    # 初/回診以「是否曾完成看診」判定，需在本次標記 COMPLETED 前先算
     has_completed_visit = any(v.status == "COMPLETED" for v in patient.visits)
 
     today = date.today()
@@ -278,6 +295,8 @@ def get_plan_summary(db: Session) -> PlanListSummary:
 def list_plans(
     db: Session, search: str | None = None, status: str | None = None
 ) -> list[PlanListItem]:
+    """計畫列表。status 未指定時預設只列有效中（列表頁的主要用途是追蹤）；
+    要看全部須明確傳 ALL。排序：有評估日者優先、評估日近者在前。"""
     query = db.query(RehabPlan).join(Patient)
     if search:
         like = f"%{search}%"
@@ -320,9 +339,13 @@ def get_plan_detail(db: Session, plan_id: int) -> PlanDetailOut:
 
 
 def create_plan(db: Session, patient_id: int, doctor: User, data: PlanCreate) -> RehabPlan:
+    """建立計畫（version 1）。一個病患同時只能有一個有效計畫，
+    要開新計畫須先結束舊的——否則完成率、儀表板的「目前計畫」都會歧義。"""
     patient = common.get_patient_or_404(db, patient_id)
     if common.get_active_plan(patient):
         raise HTTPException(status_code=400, detail="病患已有進行中的復健計畫")
+    # FIXME: data.nurse_id 未驗證存在且 role == "nurse"——傳錯 id 會直接撞 FK 500，
+    # 傳到非護理師帳號則靜默指派錯角色
 
     plan = RehabPlan(
         patient_id=patient.id,
@@ -350,6 +373,11 @@ def create_plan(db: Session, patient_id: int, doctor: User, data: PlanCreate) ->
 
 
 def adjust_plan(db: Session, plan_id: int, data: PlanAdjust) -> RehabPlan:
+    """調整計畫：關舊版、以請求 payload 重建新版 items（覆蓋式，非增量 patch）。
+
+    副作用：status 一律重設回 ONGOING——PENDING_EVALUATION 的計畫
+    經醫生調整即視為「已評估、繼續執行」。
+    """
     plan = get_plan_or_404(db, plan_id)
     if plan.status not in common.ACTIVE_PLAN_STATUSES:
         raise HTTPException(status_code=400, detail="只能調整有效中的計畫")

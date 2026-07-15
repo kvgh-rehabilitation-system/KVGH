@@ -50,6 +50,16 @@ def _cos_to_deg(value: float) -> float:
 
 
 def _build_segments(steps: list[int], mentor_hlt: list[int]) -> list[dict]:
+    """由 stair.json 的步驟切點建段表——所有幀映射的共同基礎。
+
+    Args:
+        steps: 病患影片各 TALMA 步驟的結束幀（遞增）
+        mentor_hlt: 導師影片對應的結束幀（與 steps 等長、一一配對）
+    Returns:
+        每段含病患/導師幀區間與該段在兩支輸出影片的起始幀：
+        plain_base 累加各段 max(Δp, Δm)（合成時先到者凍結、以較長者為準），
+        full_base 再加上前面每段結尾的 HOLD_FRAMES 停留。
+    """
     segments = []
     p_prev, m_prev, plain_base = 0, 0, 0
     for k, (p_k, m_k) in enumerate(zip(steps, mentor_hlt), start=1):

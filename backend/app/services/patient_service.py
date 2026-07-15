@@ -1,3 +1,9 @@
+"""病患端商業邏輯：自己的儀表板/計畫/看診查詢、影片上傳與進度輪詢。
+
+安全邊界：所有查詢都從 get_patient_by_user（登入者的 Patient 列）出發，
+單筆存取走 _get_own_submission 驗歸屬——病患絕不能碰到別人的資料。
+"""
+
 from datetime import date, timedelta
 
 from fastapi import HTTPException, UploadFile
@@ -190,6 +196,8 @@ def create_submission(
     if not item or not current or item.version_id != current.id:
         raise HTTPException(status_code=404, detail="動作項目不存在")
 
+    # 導師影片須「萃取完成且已標註」才收上傳：比對演算法同時需要
+    # 3D 骨架（萃取產物）與重點動作幀（標註），缺一比對必失敗，不如在入口擋下
     tv = item.teacher_video
     if not tv or tv.extraction_status != "EXTRACTED" or tv.annotation_status != "ANNOTATED":
         raise HTTPException(
@@ -243,13 +251,18 @@ def get_submission_status(db: Session, user: User, submission_id: int) -> Submis
 
 
 def delete_submission(db: Session, user: User, submission_id: int) -> dict:
+    """病患撤回自己的上傳（已審核的不可撤，分析中的等結束再撤）。"""
     sub = _get_own_submission(db, user, submission_id)
     if sub.status == "REVIEWED":
         raise HTTPException(status_code=409, detail="已審核的紀錄無法刪除")
+    # 分析中不給刪：worker 正在讀寫該目錄，rmtree 會讓任務炸出難解的半殘狀態
     if sub.analysis_status in ("TRANSCODING", "EXTRACTING", "COMPARING"):
         raise HTTPException(status_code=409, detail="分析進行中，請稍候再刪除")
     if sub.analysis:
         db.delete(sub.analysis)
+    # FIXME: 未檢查 NurseReport.submission_id 引用——若護理師曾針對此上傳回報，
+    # db.delete 會撞 FK 500，且下兩行已先刪掉磁碟檔案（DB 列還在、檔案已消失）。
+    # 應先驗引用（或改 SET NULL），commit 成功後才刪檔案。
     media_service.delete_media_dir(media_service.submission_dir(sub.id))
     media_service.delete_media_dir(media_service.results_dir(sub.id))
     db.delete(sub)

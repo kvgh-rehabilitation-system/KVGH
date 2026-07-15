@@ -46,6 +46,9 @@ def _user_ref_count(db: Session, user: User) -> int:
     video_submissions.reviewed_by、nurse_reports.nurse_id。
     病患另查 Patient 底下的 visits/plans/submissions（分析結果與護理回報
     掛在這三者之下，父層為 0 即安全）。
+
+    FIXME: 漏了 teacher_videos.uploaded_by——曾上傳導師影片但無其他關聯的
+    護理師會被誤判可真刪，db.delete 時撞 FK 直接 500。
     """
     count = 0
     count += db.query(func.count(Visit.id)).filter(Visit.doctor_id == user.id).scalar()
