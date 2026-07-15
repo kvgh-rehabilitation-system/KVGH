@@ -7,6 +7,12 @@ from app.db.base_class import Base
 
 
 class Patient(Base):
+    """病患病歷主檔，與 User（登入帳號）一對一。
+
+    與 users 分表：臨床資料（病歷號、生日、性別）不該混進認證表，
+    且 visits/plans 等臨床 FK 全部指向這裡而非 users。
+    """
+
     __tablename__ = "patients"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -24,6 +30,7 @@ class Patient(Base):
 
     @property
     def age(self) -> int:
+        """實歲。年差先算好，若今年生日還沒到，用 tuple 比較的布林值（0/1）扣 1。"""
         today = date.today()
         return (
             today.year

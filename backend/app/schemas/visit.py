@@ -1,3 +1,5 @@
+"""看診紀錄的 request/response 結構。"""
+
 from datetime import date
 
 from pydantic import BaseModel

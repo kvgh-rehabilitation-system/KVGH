@@ -1,3 +1,9 @@
+"""復健計畫（含版本快照與動作項目）的 request/response 結構。
+
+醫生端與護理師端共用：PlanCreate/PlanAdjust 由醫生使用（整版覆蓋式調整），
+PlanItemCreate/Update 另供護理師逐項維護動作（見 nurse router）。
+"""
+
 from datetime import date
 
 from pydantic import BaseModel

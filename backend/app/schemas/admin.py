@@ -1,3 +1,5 @@
+"""admin 端（/api/admin/*）的 request/response 結構：帳號 CRUD、系統總覽、分析任務監控。"""
+
 from datetime import date, datetime
 from typing import Literal
 

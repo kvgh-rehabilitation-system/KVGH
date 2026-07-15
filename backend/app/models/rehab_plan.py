@@ -7,6 +7,12 @@ from app.db.base_class import Base
 
 
 class RehabPlan(Base):
+    """復健計畫主檔（醫生開立、指派護理師追蹤）。
+
+    內容（目標/動作項目）不放這裡而放 PlanVersion：醫生每次「調整計畫」
+    產生新版本，舊版本保留成歷史，回顧時才能看到當時的處方內容。
+    """
+
     __tablename__ = "rehab_plans"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -34,6 +40,14 @@ class RehabPlan(Base):
 
 
 class PlanVersion(Base):
+    """計畫的一個版本快照（目標 + 動作項目）。
+
+    調整計畫時舊版 is_current=False、ended_at 填今日，新版依請求 payload
+    重建 items（導師影片綁定自動沿用前版，見 doctor_service.adjust_plan）；
+    submissions 記的是 plan_version_id/plan_item_id，因此舊影片永遠對得回
+    「上傳當時」的處方，不會被之後的調整改寫。
+    """
+
     __tablename__ = "plan_versions"
 
     id: Mapped[int] = mapped_column(primary_key=True)

@@ -1,3 +1,8 @@
+"""醫護端「病患」視角的 response 結構（列表列、詳細頁組合資料）。
+
+病患本人入口（portal）的結構在 dashboard.py 的 PatientDashboardOut，不在這裡。
+"""
+
 from datetime import date
 
 from pydantic import BaseModel

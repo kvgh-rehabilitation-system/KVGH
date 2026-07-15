@@ -7,6 +7,10 @@ from app.db.base_class import Base
 
 
 class Visit(Base):
+    """門診看診紀錄。rehab_decision 記錄醫生的復健決策；
+    後端只有 END_PLAN 會連動（關閉進行中計畫，見 doctor_service.create_visit），
+    CREATE_PLAN/ADJUST_PLAN 的實際操作由前端導向計畫表單另行呼叫計畫端點。"""
+
     __tablename__ = "visits"
 
     id: Mapped[int] = mapped_column(primary_key=True)

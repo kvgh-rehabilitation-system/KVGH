@@ -7,6 +7,13 @@ from app.db.base_class import Base
 
 
 class User(Base):
+    """登入帳號（四角色共用一表，以 role 區分）。
+
+    patient 角色另有一對一的 Patient 列存病歷資料；
+    醫護（doctor/nurse/admin）只需要這張表。
+    role 建立後禁改（admin_service 擋），避免 Patient 列變孤兒。
+    """
+
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)

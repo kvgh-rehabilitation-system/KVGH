@@ -1,3 +1,10 @@
+"""影片上傳、演算法分析結果、護理師審核與回報的 request/response 結構。
+
+display_status 是把 status（業務流）與 analysis_status（演算法管線）
+合併後的單一顯示狀態，統一由 common.submission_display_status 計算，
+前端只認這個欄位，不自行組合兩軸。
+"""
+
 from datetime import date, datetime
 
 from pydantic import BaseModel

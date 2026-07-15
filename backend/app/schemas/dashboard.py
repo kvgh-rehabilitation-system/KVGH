@@ -1,3 +1,5 @@
+"""三種角色首頁儀表板的 response 結構（醫生/護理師/病患各一組）。"""
+
 from datetime import date
 
 from pydantic import BaseModel

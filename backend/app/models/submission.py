@@ -7,7 +7,17 @@ from app.db.base_class import Base
 
 
 class VideoSubmission(Base):
-    """病患針對某復健動作上傳的居家復健影片（影片檔實際上傳後續實作，先存 URL 佔位）。"""
+    """病患針對某復健動作上傳的居家復健影片，以及其分析與審核狀態。
+
+    兩條狀態軸刻意分開：
+    - status（業務流）：ANALYZING → PENDING_REVIEW → REVIEWED，驅動護理師佇列
+    - analysis_status（演算法管線）：PENDING → TRANSCODING → EXTRACTING →
+      COMPARING → DONE|FAILED，由 worker 逐步更新，驅動進度顯示與重試
+    合併成一軸會讓「分析失敗但仍需人工處理」這類狀態無法表達。
+
+    plan_id/plan_version_id/plan_item_id 三層 FK 同時保留：查詢常用 plan_id，
+    歷史對照用 version/item（見 PlanVersion docstring 的快照設計）。
+    """
 
     __tablename__ = "video_submissions"
 
@@ -51,7 +61,13 @@ class VideoSubmission(Base):
 
 
 class AnalysisResult(Base):
-    """復健動作演算法的分析結果。目前由 seed 產生模擬值，未來由真演算法寫入。"""
+    """演算法分析結果（每 submission 一筆，unique FK）。
+
+    worker 比對完成時寫入；seed --demo 也會造假資料列（但磁碟無對應檔案）。
+    metrics 是 JSON 直通欄位：joint_deviations、motion_sequence，
+    以及未來 LLM 報告的 ai_report 都塞這裡，加欄免 migration（無 Alembic）。
+    summary_text 是演算法的規則式輸出，不是護理師評語（那在 VideoSubmission.feedback）。
+    """
 
     __tablename__ = "analysis_results"
 

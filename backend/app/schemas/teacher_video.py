@@ -1,3 +1,5 @@
+"""導師影片庫（護理師端）與病患端上傳進度輪詢的 request/response 結構。"""
+
 from datetime import datetime
 
 from pydantic import BaseModel
