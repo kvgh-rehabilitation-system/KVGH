@@ -13,7 +13,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ENGINE_ROOT="${ENGINE_ROOT:-$SCRIPT_DIR/../algorithm/2D_and_3D_project}"
 MANIFEST="${MANIFEST:-$SCRIPT_DIR/weights_manifest.txt}"
 
-# 取得 release；不存在則建立（tag 會指向預設分支 HEAD）
+# 取得 release；不存在則建立（tag 會指向預設分支 HEAD）。
+# 這裡刻意用 -sS 不用 -f：404（release 不存在）也要拿到 JSON 才能判斷要建立
 release_json="$(curl -sS "${AUTH[@]}" "$API/releases/tags/$TAG")"
 release_id="$(printf '%s' "$release_json" | python3 -c 'import json,sys
 d=json.load(sys.stdin); print(d.get("id",""))')"
@@ -26,10 +27,13 @@ if [ -z "$release_id" ]; then
     }")"
     release_id="$(printf '%s' "$release_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')"
 fi
+# 先撈已存在的資產名單做冪等跳過（重跑不會重傳）。
+# per_page=100 上限對目前 manifest（個位數資產）綽綽有餘
 existing_assets="$(curl -fsS "${AUTH[@]}" "$API/releases/$release_id/assets?per_page=100" \
     | python3 -c 'import json,sys; print("\n".join(a["name"] for a in json.load(sys.stdin)))')"
 echo "release id: $release_id"
 
+# manifest 格式同 download_weights.sh：<資產名> <sha256> <bytes> <相對路徑>，檔尾需換行
 grep -v '^#' "$MANIFEST" | while IFS=' ' read -r asset sha size target; do
     [ -n "$asset" ] || continue
     if printf '%s\n' "$existing_assets" | grep -qx "$asset"; then

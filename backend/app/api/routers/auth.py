@@ -15,7 +15,9 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 def login(data: LoginRequest, db: Session = Depends(get_db)):
     user = auth_service.authenticate(db, data.username, data.password)
     if not user:
+        # 帳號不存在與密碼錯誤刻意回同一訊息，避免洩漏帳號是否存在
         raise HTTPException(status_code=401, detail="帳號或密碼錯誤")
+    # 停用檢查放在密碼驗證之後：密碼錯的人不該得知帳號被停用
     if not user.is_active:
         raise HTTPException(status_code=403, detail="帳號已被停用，請聯絡管理員")
     token = create_access_token(user.username, user.role)
@@ -26,6 +28,7 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
 
 @router.get("/me", response_model=MeResponse)
 def me(user: User = Depends(get_current_user)):
+    """回傳目前登入者資訊；前端重新整理時以此還原登入狀態並驗 token 是否仍有效。"""
     return MeResponse(
         id=user.id, username=user.username, role=user.role, name=user.name, title=user.title
     )

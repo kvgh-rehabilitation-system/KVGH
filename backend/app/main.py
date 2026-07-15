@@ -1,3 +1,9 @@
+"""FastAPI 應用組裝入口（uvicorn 目標：app.main:app）。
+
+路由按角色拆分（admin/auth/doctor/nurse/patient/media），
+邏輯都在 services 層，這裡只負責建 app、掛 middleware 與 router。
+"""
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -9,6 +15,8 @@ from app.db.session import engine
 
 
 def create_app() -> FastAPI:
+    # 無 Alembic：create_all 建缺少的表，ensure_schema 再對既有表補新欄位
+    #（兩者皆冪等，import 時即執行，所以 app 一載入 schema 就緒）
     Base.metadata.create_all(bind=engine)
     ensure_schema(engine)
 
