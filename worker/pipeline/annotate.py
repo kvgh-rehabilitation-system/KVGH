@@ -20,6 +20,8 @@ class AnnotationError(RuntimeError):
 
 
 def _replay_reader(targets: set[int], last: int):
+    """產生模擬鍵盤輸入的 key_reader：把「網頁選好的幀」重播給原標註工具。"""
+
     def reader(frame_count: int, *_args) -> str:
         if frame_count in targets:
             targets.discard(frame_count)  # 標註後游標 +1，避免重複標
@@ -32,15 +34,18 @@ def _replay_reader(targets: set[int], last: int):
 
 
 def write_annotation(teacher_video_id: int, frames: list[int]) -> str:
+    """把護理師選定的重點動作幀寫成演算法標註 JSON，回傳相對 MEDIA_ROOT 路徑。"""
     video = paths.canonical_video("teacher", teacher_video_id)
     if not video.is_file():
         raise AnnotationError(f"找不到導師影片: {video}")
     if not frames:
         raise AnnotationError("標註幀清單為空")
 
+    # 用原工具的 select_frames 走訪影片，逐幀比對是否為選定幀
     targets = set(int(f) for f in frames)
     selected = select_frames(str(video), key_reader=_replay_reader(targets, max(targets)))
 
+    # 數量不符 = 有幀號超出影片實際範圍（原工具走不到該幀）
     if len(selected) != len(frames):
         raise AnnotationError(
             f"標註幀數不符（要求 {len(frames)}、實際 {len(selected)}），"

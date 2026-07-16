@@ -33,8 +33,10 @@ _ERROR_FIELD = {"teacher": "extraction_error", "submission": "analysis_error"}
 
 
 def _update(kind: str, entity_id: int, **fields) -> None:
+    """對 teacher/submission 列做欄位更新（獨立短交易，寫完即 commit）。"""
     with session_scope() as s:
         obj = s.get(_MODEL[kind], entity_id)
+        # 實體被刪（如病患撤回上傳）就讓任務炸掉，不要對空氣寫狀態
         if obj is None:
             raise RuntimeError(f"{kind} #{entity_id} 不存在（可能已被使用者刪除）")
         for key, value in fields.items():
@@ -42,6 +44,7 @@ def _update(kind: str, entity_id: int, **fields) -> None:
 
 
 def _set_status(kind: str, entity_id: int, status: str, error: str | None = None) -> None:
+    """更新管線狀態欄（teacher→extraction_status、submission→analysis_status）。"""
     _update(
         kind,
         entity_id,
@@ -50,6 +53,7 @@ def _set_status(kind: str, entity_id: int, status: str, error: str | None = None
 
 
 def _fail(kind: str, entity_id: int, message: str, stderr: str = "") -> None:
+    """標記 FAILED 並記錄錯誤明細（截 4000 字防塞爆 Text 欄與前端）。"""
     detail = f"{message}\n{stderr}".strip() if stderr else message
     logger.error("%s #%s FAILED: %s", kind, entity_id, detail)
     _set_status(kind, entity_id, "FAILED", detail[:4000])
@@ -123,6 +127,7 @@ def run_comparison(self, submission_id: int, teacher_video_id: int):
         _set_status("submission", submission_id, "COMPARING")
         analysis = compare.run_comparison(submission_id, teacher_video_id)
 
+        # metrics.raw 記錄所有磁碟產物的相對路徑，讓 DB 列自帶產物索引
         metrics = analysis.get("metrics") or {}
         metrics["raw"] = {
             "results_dir": f"results/{submission_id}",
@@ -135,6 +140,7 @@ def run_comparison(self, submission_id: int, teacher_video_id: int):
             "mentor": paths.teacher_name(teacher_video_id),
         }
 
+        # 分析結果 upsert（重新分析時覆寫既有列，submission_id 唯一）
         with session_scope() as s:
             sub = s.get(VideoSubmission, submission_id)
             if sub is None:
@@ -178,6 +184,8 @@ def save_annotation(self, teacher_video_id: int, frames: list[int]):
         logger.info("teacher #%s 標註完成: %s", teacher_video_id, rel)
         return rel
     except annotate.AnnotationError as exc:
+        # 失敗退回 UNANNOTATED 讓護理師可重標。
+        # 錯誤訊息借放 extraction_error（模型沒有 annotation_error 欄位，免 migration）
         logger.error("teacher #%s 標註失敗: %s", teacher_video_id, exc)
         _update(
             "teacher",

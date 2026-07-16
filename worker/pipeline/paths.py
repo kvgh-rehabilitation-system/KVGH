@@ -30,6 +30,7 @@ def entity_name(kind: str, entity_id: int) -> str:
 
 
 def canonical_video(kind: str, entity_id: int) -> Path:
+    """轉檔後的正式影片路徑（t{id}.mp4 / s{id}.mp4），下游所有處理只認這支。"""
     return entity_dir(kind, entity_id) / f"{entity_name(kind, entity_id)}.mp4"
 
 
@@ -58,4 +59,5 @@ def jobs_dir() -> Path:
 
 
 def rel_to_media(path: Path) -> str:
+    """絕對路徑 → 相對 MEDIA_ROOT 字串（DB 只存相對路徑，換機器不用改資料）。"""
     return str(path.relative_to(config.MEDIA_ROOT))

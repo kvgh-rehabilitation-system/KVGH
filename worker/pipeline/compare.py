@@ -31,6 +31,7 @@ class ComparisonError(RuntimeError):
 
 
 def _link(src: Path, dest: Path) -> None:
+    """symlink 既有 artifact 進工作目錄（不複製，npy/影片動輒數百 MB）。"""
     if not src.is_file():
         raise ComparisonError(f"缺少必要的輸入檔: {src}")
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -53,6 +54,7 @@ def run_comparison(submission_id: int, teacher_video_id: int) -> dict:
     # 渲染用靜態素材（alpha/belta/cosine/AoL-based）也是 CWD 相對讀取
     (ws / "ppt").symlink_to(config.ALGORITHM_DIR / "assets" / "ppt")
     try:
+        # 佈置輸入：導師標註 + 雙方的 npy / 2D / 3D 渲染影片（symlink 重用）
         _link(paths.annotation_json(teacher_video_id), ws / "json" / f"{t}.json")
         for kind, entity_id, name in (
             ("teacher", teacher_video_id, t),
@@ -94,6 +96,7 @@ def run_comparison(submission_id: int, teacher_video_id: int) -> dict:
         if not analysis_path.is_file():
             raise ComparisonError("比對完成但缺少 analysis_json 輸出（humanpose_api 版本過舊？）")
 
+        # 收取四個 JSON 產物到 results/{sid}/（永久保存的產物契約，見 worker/CLAUDE.md）
         results = paths.results_dir(submission_id)
         results.mkdir(parents=True, exist_ok=True)
         _collect(analysis_path, results / "analysis.json")
@@ -101,6 +104,7 @@ def run_comparison(submission_id: int, teacher_video_id: int) -> dict:
         _collect(ws / "stair_json" / f"{s}.json", results / "stair.json")
         _collect(ws / "angles_json" / f"{s}.json", results / "angles.json")
 
+        # 兩支輸出影片先補 faststart（瀏覽器邊播邊緩衝）再收取
         output_video = ws / "output_video" / f"{s}.mp4"
         output_plain = ws / "output_4_video" / f"{s}_plain.mp4"
         if output_video.is_file():
@@ -117,9 +121,11 @@ def run_comparison(submission_id: int, teacher_video_id: int) -> dict:
             f"humanpose 比對逾時（>{config.COMPARISON_TIMEOUT_SECONDS}s）"
         )
     finally:
+        # 無論成敗都清工作目錄（fig/ 等中間 PNG 動輒上千張，不留垃圾）
         shutil.rmtree(ws, ignore_errors=True)
 
 
 def _collect(src: Path, dest: Path) -> None:
+    """產物存在才搬（部分產物視演算法版本而定，缺了不算錯——backend 端容錯 404）。"""
     if src.is_file():
         shutil.move(str(src), str(dest))
