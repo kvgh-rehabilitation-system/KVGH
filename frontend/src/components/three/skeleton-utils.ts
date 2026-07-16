@@ -1,3 +1,8 @@
+/**
+ * 【遺留】Michelle.glb（Mixamo 骨架）的骨骼查找工具。
+ * 只供 MotionReplay / SkeletonHero / SkeletonViewer 等舊元件使用；
+ * 現行素體（rehab_human.glb）的對應工具在 human-model.ts。
+ */
 import * as THREE from 'three'
 
 /** 演算法關節鍵 → Mixamo 骨骼名稱字尾 */

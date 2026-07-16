@@ -1,3 +1,8 @@
+/**
+ * 3D 元件的 lazy 載入包裝（全站唯一入口）。
+ * three.js + fiber + drei 體積大，經 React.lazy 切成獨立 chunk，
+ * 只有真正用到 3D 的頁面才下載；一般頁面完全不碰 three。
+ */
 import { lazy, Suspense } from 'react'
 import type { ComponentProps } from 'react'
 import { Skeleton } from '../ui/skeleton'

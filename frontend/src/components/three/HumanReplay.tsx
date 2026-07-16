@@ -1,3 +1,8 @@
+/**
+ * 現行主力重播元件：.npy 3D 骨架 → preparePose 正規化 → retarget 逐幀驅動
+ * rehab_human.glb 蒙皮素體。分析資料齊全時審核頁走這裡（缺 .npy 時
+ * 降級為 HumanMotionReplay 示意動畫，選擇邏輯在 MotionReplayPanel）。
+ */
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { Canvas, useFrame } from '@react-three/fiber'
@@ -9,6 +14,7 @@ import { createRetargeter } from './retarget'
 import { JointMarkers } from './JointMarkers'
 import { ReplayControls } from './ReplayControls'
 
+/** 播放狀態放 ref（非 state）：每幀更新 time 不能觸發 React re-render */
 interface PlaybackState {
   playing: boolean
   speed: number
@@ -54,6 +60,7 @@ function RetargetedHuman({
     const pb = playback.current
     if (pb.playing) pb.time += delta * pb.speed
 
+    // 以播放時間換算幀位置，相鄰兩幀線性插值（60fps 螢幕播 30/60fps 資料都平滑）
     const { frames, positions } = pose
     const framePos = (pb.time * fps) % frames
     const idx = Math.floor(framePos)

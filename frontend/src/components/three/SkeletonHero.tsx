@@ -28,7 +28,7 @@ function HeroModel() {
   return <primitive object={model} />
 }
 
-/** 登入頁 / Dashboard 裝飾用：緩慢自轉的 idle 骨架 */
+/** 【遺留】登入頁 / Dashboard 裝飾用：緩慢自轉的 Michelle.glb（現行用 HumanHero） */
 export default function SkeletonHero({ className }: { className?: string }) {
   return (
     <div className={className}>

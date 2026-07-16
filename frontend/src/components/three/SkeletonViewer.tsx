@@ -26,7 +26,7 @@ interface Props {
   autoRotate?: boolean
 }
 
-/** 通用 GLTF 人形檢視器，提供棚燈、陰影與旋轉縮放控制。 */
+/** 【遺留】Michelle.glb 靜態檢視器（棚燈、陰影、旋轉縮放），現行素體展示用 HumanHero。 */
 export default function SkeletonViewer({ className, autoRotate = false }: Props) {
   return (
     <div className={className}>

@@ -1,3 +1,8 @@
+/**
+ * 【遺留元件】程式化素體（球關節 + 膠囊骨段 + 橢球軀幹）版的 .npy 重播。
+ * 現行審核頁用 HumanReplay（蒙皮素體重定向）；本檔保留供切回比對，勿刪。
+ * 優點：關節位置就是演算法輸出的原始點，無重定向誤差，除錯時最誠實。
+ */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { Canvas, useFrame } from '@react-three/fiber'
@@ -107,7 +112,7 @@ function Mannequin({
       mesh.scale.set(1, dist / pose.boneLengths[k], 1)
     })
 
-    // 胸廓橢球：沿脊椎方向，寬度取肩距
+    // 胸廓橢球：沿脊椎方向，寬度取肩距（比例係數為目測調校的體型參數）
     if (chestRef.current) {
       setFromScratch(tmpA, 7)
       setFromScratch(tmpB, 8)

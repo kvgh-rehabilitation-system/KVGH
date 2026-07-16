@@ -1,3 +1,8 @@
+/**
+ * 【遺留元件】Michelle.glb（Mixamo 骨架）版的示意動畫重播。
+ * 現行審核頁用的是 HumanMotionReplay（rehab_human.glb）；
+ * 本檔保留供隨時切回舊素體比對，勿刪（見 frontend/CLAUDE.md）。
+ */
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { Canvas, useFrame } from '@react-three/fiber'

@@ -1,3 +1,8 @@
+/**
+ * 素體「示意動畫」重播：吃 DB 的關節角度序列（metrics.motion_sequence），
+ * 不需要磁碟上的 .npy——是 seed 假資料與 pose3d 404 時的降級方案。
+ * 真實資料的忠實重播請看 HumanReplay（.npy 重定向驅動）。
+ */
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { Canvas, useFrame } from '@react-three/fiber'
@@ -7,6 +12,7 @@ import { findJointBones, useHumanModel } from './human-model'
 import { JointMarkers } from './JointMarkers'
 import { ReplayControls } from './ReplayControls'
 
+/** 播放狀態放 ref（非 state）：每幀更新 time 不能觸發 React re-render */
 interface PlaybackState {
   playing: boolean
   speed: number
@@ -56,6 +62,7 @@ function ReplayModel({
 
     const { fps, frames, joints } = sequence
     if (frames.length > 0) {
+      // 幀間線性插值讓低 fps（10fps）序列播起來平滑
       const total = frames.length
       const framePos = (pb.time * fps) % total
       const idx = Math.floor(framePos)
@@ -67,6 +74,7 @@ function ReplayModel({
         const rest = restPose.get(joint)
         if (!bone || !rest) return
         const angle = frames[idx][j] * (1 - blend) + frames[next][j] * blend
+        // ×0.6：角度序列滿幅 ±30° 直接套會讓素體擺動過猛，示意動畫縮小幅度較自然
         tmpQuat.setFromAxisAngle(rest.axis, THREE.MathUtils.degToRad(angle * 0.6))
         bone.quaternion.copy(rest.quat).multiply(tmpQuat)
       })
