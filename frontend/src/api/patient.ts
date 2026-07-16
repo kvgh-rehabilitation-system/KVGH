@@ -1,3 +1,4 @@
+/** 病患入口 API（/api/patient/*）：儀表板、看診/計畫查詢、影片上傳與進度輪詢。 */
 import { client } from './client'
 import type {
   PatientDashboard,
@@ -29,6 +30,7 @@ export async function getPlan(planId: number | string) {
 
 // ---- 影片上傳 ----
 
+/** 上傳復健影片（multipart）。回傳 202 + 進度物件，後續用 getSubmissionProgress 輪詢。 */
 export async function uploadSubmission(
   planId: number | string,
   planItemId: number,

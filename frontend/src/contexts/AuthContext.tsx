@@ -1,3 +1,7 @@
+/**
+ * 登入狀態管理：user 存 localStorage（重新整理後還原），token 由 api/client 攔截器取用。
+ * token 真偽不在前端驗——任何 API 回 401 時攔截器會強制登出，等效於延遲驗證。
+ */
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { TOKEN_KEY, USER_KEY } from '../api/client'
@@ -12,6 +16,7 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+/** 從 localStorage 還原上次登入的使用者（JSON 壞掉視為未登入）。 */
 function readStoredUser(): AuthUser | null {
   const raw = localStorage.getItem(USER_KEY)
   if (!raw) return null
@@ -23,8 +28,10 @@ function readStoredUser(): AuthUser | null {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  // lazy initializer：只在首次 render 讀一次 localStorage
   const [user, setUser] = useState<AuthUser | null>(readStoredUser)
 
+  // 登入成功後同時落 localStorage（token + user）與 state
   const login = useCallback(async (username: string, password: string) => {
     const result = await apiLogin(username, password)
     const authUser: AuthUser = {
@@ -48,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
+/** 取用登入狀態；在 AuthProvider 外呼叫直接拋錯（開發期就抓到掛錯位置）。 */
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext)
   if (!ctx) throw new Error('useAuth must be used within AuthProvider')

@@ -1,3 +1,4 @@
+/** 護理師端 API（/api/nurse/*）：審核、動作管理、回報、導師影片庫與標註。 */
 import axios from 'axios'
 
 import { client } from './client'

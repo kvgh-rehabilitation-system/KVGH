@@ -1,3 +1,9 @@
+/**
+ * 全站 TypeScript 型別的唯一定義處，與 backend/app/schemas/ 的
+ * Pydantic 結構一一對應（欄位名一致，日期為 ISO 字串）。
+ * 後端 schema 改動時必須同步這裡，否則型別檢查會給出錯誤的安全感。
+ */
+
 // ---- Auth ----
 export type Role = 'admin' | 'doctor' | 'nurse' | 'patient'
 

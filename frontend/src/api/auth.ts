@@ -1,3 +1,4 @@
+/** 登入 API（/api/auth/*）。 */
 import { client } from './client'
 import type { Role } from '../types'
 

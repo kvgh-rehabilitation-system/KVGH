@@ -1,3 +1,4 @@
+/** admin API（/api/admin/*）：帳號 CRUD、系統總覽、分析任務監控。 */
 import { client } from './client'
 import type {
   AdminOverview,

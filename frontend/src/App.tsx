@@ -35,11 +35,16 @@ import { PortalVisitsPage } from './features/patient/pages/PortalVisitsPage'
 import { PortalPlanListPage } from './features/patient/pages/PortalPlanListPage'
 import { PortalPlanDetailPage } from './features/patient/pages/PortalPlanDetailPage'
 
+/** 根路徑（與所有未知路徑）導向：已登入 → 角色首頁，未登入 → 登入頁。 */
 function HomeRedirect() {
   const { user } = useAuth()
   return <Navigate to={user ? roleHome[user.role] : '/login'} replace />
 }
 
+/**
+ * 全站路由表。四個角色各一棵子樹（/admin /doctor /nurse /portal），
+ * 樹根掛 RequireRole 守衛 + 該角色的 Sidebar Layout；頁面元件放 features/。
+ */
 export default function App() {
   return (
     <AuthProvider>

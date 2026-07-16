@@ -1,3 +1,7 @@
+/**
+ * 四種角色的 Sidebar 導覽定義。版面骨架共用 AppLayout，
+ * 這裡只宣告各角色看得到的選單項目（路由守衛在 App.tsx 的 RequireRole）。
+ */
 import {
   Activity,
   CalendarCheck,

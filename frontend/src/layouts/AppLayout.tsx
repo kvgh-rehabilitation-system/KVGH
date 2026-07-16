@@ -62,10 +62,11 @@ function CollapsedTooltip({
   )
 }
 
-/** 三種角色共用的 Sidebar Layout（可收合成窄欄） */
+/** 四種角色共用的 Sidebar Layout（可收合成窄欄；頁面內容經 Outlet 注入）。 */
 export function AppLayout({ navItems, roleLabel }: Props) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  // 收合狀態記在 localStorage，跨頁與重新整理保持一致
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem(COLLAPSED_KEY) === '1',
   )

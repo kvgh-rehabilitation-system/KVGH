@@ -1,3 +1,7 @@
+/**
+ * 全站顯示格式化與 enum → 中文標籤的唯一來源。
+ * 後端 enum 新增值時記得同步這裡的 label 表，否則畫面會露出英文原值。
+ */
 import type { Role } from '@/types'
 
 export const roleLabel: Record<Role, string> = {
@@ -11,6 +15,7 @@ export const roleLabel: Record<Role, string> = {
 export const withRole = (name: string | null | undefined, role: Role): string =>
   name ? `${name} ${roleLabel[role]}` : ''
 
+/** ISO 日期字串 → YYYY/MM/DD；空值顯示破折號。 */
 export function formatDate(value: string | null | undefined): string {
   if (!value) return '—'
   const d = new Date(value)
@@ -38,6 +43,7 @@ export function todayHeading(): string {
   return `${d.getFullYear()} 年 ${d.getMonth() + 1} 月 ${d.getDate()} 日`
 }
 
+/** 依當下時段回傳問候語（儀表板頁首用）。 */
 export function greeting(): string {
   const h = new Date().getHours()
   if (h < 5) return '夜深了'

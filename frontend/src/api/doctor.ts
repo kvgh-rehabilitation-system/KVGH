@@ -1,3 +1,4 @@
+/** 醫生端 API（/api/doctor/*）：儀表板、病患/看診、計畫生命週期、回報審閱。 */
 import axios from 'axios'
 
 import { client } from './client'
@@ -40,6 +41,7 @@ export async function getSubmission(submissionId: number | string) {
   return data
 }
 
+/** 儀表板明細；磁碟無產物（seed 資料）404 → 回 null，頁面優雅降級。 */
 export async function getAnalysisData(
   submissionId: number | string,
 ): Promise<AnalysisData | null> {
