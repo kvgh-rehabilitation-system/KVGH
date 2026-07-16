@@ -24,6 +24,7 @@ const statusFilters = [
   { key: 'CLOSED', label: '已結案' },
 ]
 
+// 檢視範圍：mine = 只列自己負責計畫的病患（預設）；all = 全院病患（支援跨護理師代理照護）
 type Scope = 'mine' | 'all'
 
 const scopeOptions: { key: Scope; label: string }[] = [
@@ -31,12 +32,18 @@ const scopeOptions: { key: Scope; label: string }[] = [
   { key: 'all', label: '全部病患' },
 ]
 
+/**
+ * 護理師端病患列表：我的/全部範圍切換 + 搜尋 + 計畫狀態篩選，
+ * 表格附待審核數、最近上傳與最新分數，是進入動作管理與病患詳情的入口。
+ * 「全部病患」模式多一欄負責護理師，標示哪些是自己負責的。
+ */
 export function NursePatientListPage() {
   const [rows, setRows] = useState<NursePatientRow[] | null>(null)
   const [scope, setScope] = useState<Scope>('mine')
   const [search, setSearch] = useState('')
   const [planStatus, setPlanStatus] = useState('ALL')
 
+  // 篩選由後端執行；條件一變先清成 null 顯示 Loading 再重查
   useEffect(() => {
     setRows(null)
     listMyPatients({

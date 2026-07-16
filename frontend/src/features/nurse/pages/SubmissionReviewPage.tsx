@@ -35,9 +35,19 @@ import { SimilarityTimeline } from '../components/review/SimilarityTimeline'
 import { SubmissionHeader } from '../components/review/SubmissionHeader'
 
 interface Props {
+  /** true = 醫師檢視模式：改走 doctor API、隱藏審核表單與重新分析按鈕 */
   readOnly?: boolean
 }
 
+/**
+ * 影片審核頁（護理師審核 / 醫師唯讀共用）。
+ * 頁面只負責三路平行載入與排版，面板邏輯都在 components/review/：
+ * - getSubmission：DB 分析列（一定有，除非 404）
+ * - getAnalysisData：演算法比對明細（磁碟檔案，seed 資料 404 → null 降級）
+ * - fetchPose3d：3D 骨架 .npy（404 → null，MotionReplayPanel 退回示意動畫）
+ * 跳轉中樞是 ComparisonVideoPanel（forwardRef handle）；各影片時間軸不同，
+ * seek 一律用後端預算的 t_plain/t_full/t_patient/t_mentor（見根目錄 CLAUDE.md 幀映射陷阱）。
+ */
 export function SubmissionReviewPage({ readOnly = false }: Props) {
   const { submissionId } = useParams()
   const navigate = useNavigate()
@@ -74,6 +84,7 @@ export function SubmissionReviewPage({ readOnly = false }: Props) {
 
   const analysis = data.analysis
 
+  // 點動作卡/時間軸 → 影片跳轉並把比對影片捲進視野（面板可能在畫面外）
   const seekAction = (a: ActionCard) => {
     videoHandleRef.current?.seekAction(a)
     videoSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -83,6 +94,7 @@ export function SubmissionReviewPage({ readOnly = false }: Props) {
     videoSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
+  // 審核送出成功：播 1.4 秒全屏成功動畫後回佇列頁
   const onReviewSuccess = () => {
     setSuccess(true)
     setTimeout(() => navigate('/nurse/submissions'), 1400)
@@ -130,7 +142,8 @@ export function SubmissionReviewPage({ readOnly = false }: Props) {
               )
             )}
 
-            {/* 比對影片（seek 目標） */}
+            {/* 比對影片（seek 目標）。key 依資料有無切換：analysisData 從 null 變有值時
+                強制重掛面板，讓它以正確的畫面模式（2×2 比對 vs 僅原始影片）重新初始化 */}
             <div ref={videoSectionRef}>
               <ComparisonVideoPanel
                 key={analysisData ? 'with-data' : 'raw-only'}
@@ -167,8 +180,10 @@ export function SubmissionReviewPage({ readOnly = false }: Props) {
                 variant="secondary"
                 onClick={async () => {
                   try {
+                    // 副作用：重跑整條分析管線（冪等設計，已完成的轉檔/萃取階段直接重用）
                     await reanalyzeSubmission(data.id)
                     toast.success('已重新排入分析，已萃取的資料會直接重用')
+                    // 整頁重載讓所有面板回到「分析中」狀態並啟動輪詢
                     navigate(0)
                   } catch (err) {
                     toast.error(apiErrorMessage(err))

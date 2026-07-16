@@ -79,6 +79,7 @@ export function TeacherVideoAnnotatePage() {
     [fps, lastFrame],
   )
 
+  /** 切換目前幀的標記狀態；清單恆保持遞增排序（演算法標註依時序解讀動作段落）。 */
   const toggleMark = useCallback(() => {
     setMarked((prev) =>
       prev.includes(frame)
@@ -99,6 +100,10 @@ export function TeacherVideoAnnotatePage() {
     return () => window.removeEventListener('keydown', onKey)
   }, [frame, seekTo, toggleMark])
 
+  /**
+   * 送出標註。副作用：影片級屬性——改標註會影響所有引用此影片的計畫動作；
+   * 後端排背景任務產生演算法 JSON，送出後靠上方輪詢等 ANNOTATED/失敗結果。
+   */
   const save = async () => {
     if (!teacherVideoId) return
     if (marked.length === 0) {

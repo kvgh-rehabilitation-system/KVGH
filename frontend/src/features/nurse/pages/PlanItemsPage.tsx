@@ -50,6 +50,11 @@ const emptyForm: PlanItemInput = {
   example_video_note: '',
 }
 
+/**
+ * 護理師端動作管理頁：對目前計畫版本的復健動作做 CRUD、綁定導師影片。
+ * 動作異動 API 都回傳更新後的完整視圖（setData(next)），不需另外重抓。
+ * 計畫非有效狀態（已結案等）時整頁降為唯讀。
+ */
 export function PlanItemsPage() {
   const { planId } = useParams()
   const navigate = useNavigate()
@@ -67,8 +72,10 @@ export function PlanItemsPage() {
   }, [planId])
 
   if (!data) return <Loading />
+  // 有效計畫（進行中/待評估）才開放編輯；結案後保留唯讀檢視
   const isActive = ['ONGOING', 'PENDING_EVALUATION'].includes(data.plan_status)
 
+  /** 開啟新增動作對話框：重置表單與影片庫預選。 */
   const openCreate = () => {
     setEditing(null)
     setForm(emptyForm)
@@ -76,6 +83,7 @@ export function PlanItemsPage() {
     setDialogOpen(true)
   }
 
+  /** 開啟編輯對話框：把動作現值灌入表單（null 欄位轉空字串供受控輸入）。 */
   const openEdit = (item: PlanItem) => {
     setEditing(item)
     setForm({
@@ -90,6 +98,7 @@ export function PlanItemsPage() {
     setDialogOpen(true)
   }
 
+  /** 新增/更新動作共用：空字串欄位正規化回 null 再送出（與後端 schema 的可空語意一致）。 */
   const save = async () => {
     if (!form.name?.trim()) {
       toast.error('請填寫動作名稱')
@@ -120,6 +129,10 @@ export function PlanItemsPage() {
     }
   }
 
+  /**
+   * 刪除動作。
+   * FIXME: 沒有確認對話框，誤觸「刪除」即直接刪除動作（影片庫刪片有 ConfirmDialog，此處沒有）
+   */
   const remove = async (item: PlanItem) => {
     try {
       const next = await deletePlanItem(data.plan_id, item.id)

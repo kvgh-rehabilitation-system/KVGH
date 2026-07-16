@@ -112,6 +112,10 @@ export function TeacherVideoLibraryPage() {
     return videos.filter((v) => String(v.folder_id) === activeFolder)
   }, [videos, activeFolder])
 
+  /**
+   * 刪除導師影片（影片檔與萃取產物一併移除；被計畫動作引用時後端會擋）。
+   * 失敗時重拋錯誤讓 ConfirmDialog 保持開啟，使用者可看到錯誤後再取消。
+   */
   const removeVideo = async () => {
     if (!deleteTarget) return
     try {
@@ -124,6 +128,7 @@ export function TeacherVideoLibraryPage() {
     }
   }
 
+  /** 重新排入 2D/3D 萃取（背景任務）；失敗時重拋讓 ConfirmDialog 保持開啟。 */
   const reextract = async () => {
     if (!reextractTarget) return
     try {
@@ -283,6 +288,7 @@ export function TeacherVideoLibraryPage() {
 
 // ---- 小型彈窗（僅本頁使用） ----
 
+/** 重新命名影片的小彈窗：名稱顯示於影片庫與選片清單，Enter 可直接送出。 */
 function RenameVideoDialog({
   video,
   onClose,
@@ -342,6 +348,7 @@ function RenameVideoDialog({
   )
 }
 
+/** 移動影片到資料夾的小彈窗；Radix Select 的 value 只吃字串，故以 'none' 哨兵值代表未分類。 */
 function MoveFolderDialog({
   video,
   folders,

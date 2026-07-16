@@ -16,6 +16,7 @@ import type { SubmissionListResponse } from '../../../types'
 import { decisionLabel, formatDateTime, scoreColor } from '../../../utils/format'
 import { statusLabel, submissionStatusFilterLabel } from '../../../utils/submissionStatus'
 
+// 狀態篩選以「業務狀態」為軸（分析中/待審核/已審核），與 admin 任務頁的管線狀態軸不同
 const statusFilters = ['ALL', 'PENDING_REVIEW', 'ANALYZING', 'REVIEWED'].map((key) => ({
   key,
   label: submissionStatusFilterLabel[key],
@@ -27,9 +28,16 @@ const decisionFilters = [
   { key: 'NEEDS_ATTENTION', label: '需注意' },
 ]
 
+/**
+ * 護理師端影片審核佇列：統計卡 + 狀態/審核結果篩選 + 上傳影片表格。
+ * 預設鎖定「待審核」——這是護理師進此頁的主要目的。篩選由後端執行。
+ */
 export function SubmissionQueuePage() {
   const [data, setData] = useState<SubmissionListResponse | null>(null)
   const [status, setStatus] = useState('PENDING_REVIEW')
+  // 審核結果篩選只在狀態 = REVIEWED 時顯示（未審核的沒有 decision 可篩）
+  // FIXME: 切回其他狀態時 decision 狀態未重置，仍會帶進 API 查詢——
+  // 若先在 REVIEWED 下選了「通過/需注意」再切回待審核，清單會被隱藏條件靜默過濾成空
   const [decision, setDecision] = useState('ALL')
   const [search, setSearch] = useState('')
 
@@ -195,6 +203,7 @@ export function SubmissionQueuePage() {
                       </div>
                     </td>
                     <td className="px-5 py-3.5 text-right">
+                      {/* 三態按鈕：分析中不可點；待審核給主色「審核」；已審核/失敗給次要「查看」 */}
                       {sub.status === 'ANALYZING' && sub.display_status !== 'FAILED' ? (
                         <span className="text-xs text-bark-300">分析中</span>
                       ) : (

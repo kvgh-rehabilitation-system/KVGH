@@ -17,6 +17,10 @@ const tabs = [
   { key: 'visits', label: '看診歷史' },
 ]
 
+/**
+ * 護理師端病患詳情頁：基本資料 header + 兩分頁（計畫歷史/看診歷史）。
+ * 比醫師版精簡——護理師的主要操作是「動作管理」，由 header 按鈕直達目前計畫。
+ */
 export function NursePatientDetailPage() {
   const { patientId } = useParams()
   const navigate = useNavigate()

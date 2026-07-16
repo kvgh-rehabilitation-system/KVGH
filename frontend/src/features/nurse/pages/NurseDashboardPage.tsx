@@ -14,6 +14,10 @@ import type { NurseDashboard } from '../../../types'
 import { formatDateTime, greeting, scoreColor, todayHeading } from '../../../utils/format'
 import { statusLabel } from '../../../utils/submissionStatus'
 
+/**
+ * 護理師端首頁儀表板：審核工作統計 + 待審核佇列（分數異常紅框標記）+
+ * 需注意病患側欄（分數下滑/低分原因由後端判定）。
+ */
 export function NurseDashboardPage() {
   const { user } = useAuth()
   const [data, setData] = useState<NurseDashboard | null>(null)
