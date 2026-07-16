@@ -12,6 +12,10 @@ import { StatusBadge } from '../../../components/ui/StatusBadge'
 import type { PatientDashboard } from '../../../types'
 import { formatDate, greeting, rehabStatusLabel, scoreColor, withRole } from '../../../utils/format'
 
+/**
+ * 病患端首頁儀表板：問候語 + 本週完成率環 + 分數趨勢 + 下次回診 + 最新護理師回饋。
+ * 所有統計由後端 /api/patient/dashboard 一次算好回傳，前端不做二次彙整。
+ */
 export function PortalDashboardPage() {
   const [data, setData] = useState<PatientDashboard | null>(null)
 
@@ -43,6 +47,7 @@ export function PortalDashboardPage() {
         animate="show"
         className="grid gap-6 xl:grid-cols-12"
       >
+        {/* 本週完成率卡：進度環以「當前計畫的處方次數」為分母 */}
         <motion.section variants={staggerItem} className="card p-6 xl:col-span-4">
           <div className="flex items-start justify-between">
             <div>
@@ -69,6 +74,7 @@ export function PortalDashboardPage() {
           )}
         </motion.section>
 
+        {/* 分數趨勢卡：右上角大數字是最近一次分析的整體分數，顏色隨分數高低變化 */}
         <motion.section variants={staggerItem} className="card p-6 xl:col-span-5">
           <div className="mb-3 flex items-center justify-between">
             <div>
@@ -88,6 +94,7 @@ export function PortalDashboardPage() {
           )}
         </motion.section>
 
+        {/* 右側直欄：下次回診日期 + 最新一則護理師審核回饋 */}
         <motion.div variants={staggerItem} className="space-y-6 xl:col-span-3">
           <section className="card p-5">
             <div className="flex items-center gap-3">
@@ -119,6 +126,7 @@ export function PortalDashboardPage() {
           <p className="mb-3 mt-1 text-xs text-bark-400">實際上傳次數與處方頻率比較</p>
           <CompletionTrendChart data={data.completion_trend} />
         </section>
+        {/* FIXME: 「即將推出」文案已過時——影片上傳早已在計畫詳情頁上線，此宣傳卡應改為導流連結 */}
         <section className="relative overflow-hidden rounded-2xl bg-bark-700 p-6 text-white shadow-lifted">
           <Sparkles className="absolute right-5 top-5 text-clay-200/50" />
           <UploadCloud size={28} className="text-clay-200" />

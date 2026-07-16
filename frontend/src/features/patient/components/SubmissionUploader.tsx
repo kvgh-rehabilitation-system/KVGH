@@ -23,6 +23,8 @@ export function SubmissionUploader({ planId, item, onFinished }: Props) {
   const [trackingId, setTrackingId] = useState<number | null>(null)
   const [stage, setStage] = useState<AnalysisPipelineStatus | null>(null)
 
+  // 導師影片必須「骨架已萃取＋動作已標註」才能比對評分，
+  // 否則後端會拒收，這裡直接把按鈕鎖住並提示原因
   const teacherReady =
     item.teacher_video?.extraction_status === 'EXTRACTED' &&
     item.teacher_video?.annotation_status === 'ANNOTATED'
@@ -54,6 +56,10 @@ export function SubmissionUploader({ planId, item, onFinished }: Props) {
     return () => clearInterval(timer)
   }, [trackingId, item.name, onFinished])
 
+  /**
+   * 上傳選定影片並開始追蹤分析進度。
+   * 成功後設定 trackingId 觸發上方輪詢 effect；失敗只 toast、不改追蹤狀態。
+   */
   const upload = async (file: File) => {
     setUploading(true)
     try {
@@ -65,10 +71,12 @@ export function SubmissionUploader({ planId, item, onFinished }: Props) {
       toast.error(apiErrorMessage(err))
     } finally {
       setUploading(false)
+      // 清空 input value，否則同一檔案重選不會觸發 onChange
       if (fileRef.current) fileRef.current.value = ''
     }
   }
 
+  // 分析進行中：按鈕整個換成進度膠囊，避免病患對同一動作重複上傳
   if (trackingId && stage) {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-clay-50 px-3 py-1.5 text-xs text-clay-600">

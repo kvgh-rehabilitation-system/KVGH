@@ -8,6 +8,7 @@ import { LazyHumanHero } from '../components/three/lazy'
 import { useAuth } from '../contexts/AuthContext'
 import type { Role } from '../types'
 
+/** 各角色登入後的首頁路徑；App.tsx 的根路由重導也引用此表，改路徑只需改這裡 */
 export const roleHome: Record<Role, string> = {
   admin: '/admin/dashboard',
   doctor: '/doctor/dashboard',
@@ -15,6 +16,10 @@ export const roleHome: Record<Role, string> = {
   patient: '/portal/dashboard',
 }
 
+/**
+ * 登入頁：左側 3D 骨架 Hero（桌機限定、lazy 載入避免 three.js 拖慢首屏）、
+ * 右側帳密表單。登入成功依角色導向 roleHome 對應首頁。
+ */
 export function LoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
@@ -24,6 +29,10 @@ export function LoginPage() {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
+  /**
+   * 送出登入：AuthContext.login 負責存 token 與使用者狀態，
+   * 這裡只處理導頁與錯誤顯示（錯誤直接顯示在表單內，不用 toast）。
+   */
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
@@ -53,6 +62,7 @@ export function LoginPage() {
       />
 
       <main className="relative mx-auto grid min-h-full w-full max-w-screen-2xl lg:grid-cols-[1.25fr_0.75fr]">
+        {/* 左側品牌區：lg 以下整塊隱藏（行動裝置只留表單），3D Hero 佔滿背景 */}
         <motion.section
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

@@ -73,6 +73,8 @@ function ActionButton({
   )
 }
 
+// 新增帳號表單初始值：role 不含 admin（後端禁止建立第二個管理員），
+// 病患專屬欄位（病歷號/生日/性別/電話）只在 role=patient 時顯示與送出
 const emptyCreateForm = {
   username: '',
   password: '',
@@ -85,12 +87,19 @@ const emptyCreateForm = {
   phone: '',
 }
 
+/**
+ * 管理員帳號管理頁：帳號 CRUD、密碼重設、停用/啟用。
+ * 「刪除」遵循後端軟刪除優先規則：帳號有關聯資料（看診/計畫/影片）時自動降級為停用，
+ * 前端依 has_related_data 預先在確認對話框說明實際會發生的行為。
+ * 自己與 admin 帳號鎖定停用/刪除操作（與後端限制一致，避免自斷後路）。
+ */
 export function AdminUsersPage() {
   const { user: me } = useAuth()
   const [users, setUsers] = useState<AdminUser[] | null>(null)
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('ALL')
 
+  // 四個對話框各自獨立的目標與表單狀態；*Target 非 null 即代表該對話框開啟
   const [createOpen, setCreateOpen] = useState(false)
   const [createForm, setCreateForm] = useState(emptyCreateForm)
   const [editTarget, setEditTarget] = useState<AdminUser | null>(null)
@@ -98,6 +107,7 @@ export function AdminUsersPage() {
   const [resetTarget, setResetTarget] = useState<AdminUser | null>(null)
   const [resetValue, setResetValue] = useState('1234')
   const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null)
+  // 共用的送出中旗標：四個對話框同一時間只會開一個，共用不會互相干擾
   const [submitting, setSubmitting] = useState(false)
 
   const reload = () => listUsers().then(setUsers)
@@ -106,6 +116,8 @@ export function AdminUsersPage() {
     reload()
   }, [])
 
+  // 搜尋/角色篩選在前端做——帳號總數僅數十筆，一次撈全量比每敲一字打 API 划算。
+  // 搜尋同時比對姓名（區分大小寫無意義的中文）、帳號與病歷號（皆不分大小寫）
   const filtered = useMemo(() => {
     if (!users) return []
     return users.filter((u) => {
@@ -121,6 +133,10 @@ export function AdminUsersPage() {
     })
   }, [users, search, roleFilter])
 
+  /**
+   * 建立帳號：密碼留空時沿用系統慣例預設 1234；
+   * 病患角色額外附上 patient_profile（後端會同時建立 Patient 列）。
+   */
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault()
     setSubmitting(true)
@@ -152,11 +168,14 @@ export function AdminUsersPage() {
     }
   }
 
+  /** 更新姓名/職稱（病患另可改電話）；role 依系統規則不可變更，表單不提供。 */
   const handleEdit = async (e: FormEvent) => {
     e.preventDefault()
     if (!editTarget) return
     setSubmitting(true)
     try {
+      // FIXME: 電話留空時仍會送出空字串，後端 update_user 只判斷 is not None，
+      // 會把病患電話清成空字串——與欄位標示「留空不變更」不符（應改為空值時不帶 phone 欄位）
       await updateUser(editTarget.id, {
         name: editForm.name.trim(),
         title: editForm.title.trim(),
@@ -172,6 +191,7 @@ export function AdminUsersPage() {
     }
   }
 
+  /** 重設密碼：不強制複雜度（原型階段），留空回預設 1234。 */
   const handleReset = async (e: FormEvent) => {
     e.preventDefault()
     if (!resetTarget) return
@@ -188,6 +208,7 @@ export function AdminUsersPage() {
     }
   }
 
+  /** 停用/啟用切換。副作用：停用後該帳號立即無法登入、所有 API 皆被擋。 */
   const handleToggleActive = async (u: AdminUser) => {
     try {
       await setActive(u.id, !u.is_active)
@@ -198,6 +219,10 @@ export function AdminUsersPage() {
     }
   }
 
+  /**
+   * 刪除帳號。後端決定實際行為：無關聯資料 → 真刪（不可復原）；
+   * 有關聯資料 → 自動降級為停用。以回傳的 deleted 旗標區分 toast 樣式。
+   */
   const handleDelete = async () => {
     if (!deleteTarget) return
     setSubmitting(true)
@@ -266,6 +291,7 @@ export function AdminUsersPage() {
               </thead>
               <tbody>
                 {filtered.map((u, i) => {
+                  // 自己與 admin 帳號不給停用/刪除（與後端規則一致），僅保留編輯與重設密碼
                   const isSelf = u.username === me?.username
                   const locked = isSelf || u.role === 'admin'
                   return (

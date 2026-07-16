@@ -21,12 +21,19 @@ import {
 
 const PAGE_SIZE = 20
 
+/**
+ * 管理員分析任務監控頁：以「演算法管線狀態」（analysis_status）為軸列出所有影片繳交，
+ * FAILED 的任務可一鍵重新排入分析（後端複用 nurse_service.reanalyze_submission）。
+ * 有任務在跑時自動輪詢刷新。
+ */
 export function AdminTasksPage() {
   const [data, setData] = useState<AdminTaskList | null>(null)
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [page, setPage] = useState(1)
+  // 正在送出重新分析請求的 submission id；用來鎖按鈕防連點
   const [reanalyzing, setReanalyzing] = useState<number | null>(null)
 
+  // 篩選/分頁是後端做的（總量可能上千筆），條件變動即重新查詢
   const reload = useCallback(() => {
     return listTasks({
       analysis_status: statusFilter === 'ALL' ? undefined : statusFilter,
@@ -39,13 +46,16 @@ export function AdminTasksPage() {
     reload()
   }, [reload])
 
-  // 有任務在跑時輪詢刷新
+  // status_counts 是不分頁的全域統計，任一管線階段（排隊/轉檔/萃取/比對）有數量就輪詢，
+  // 即使當前分頁沒顯示進行中的任務也要刷新（狀態變化會反映到各 chip 的計數）
   const hasInProgress = useMemo(
     () => !!data && PIPELINE_ACTIVE_STATUSES.some((s) => (data.status_counts[s] ?? 0) > 0),
     [data],
   )
   usePollingReload(reload, hasInProgress)
 
+  // 篩選 chip：計數為 0 的中間態不顯示（避免一排空 chip），
+  // 但 DONE / FAILED 恆顯示——管理員最常直接點「失敗」查問題
   const filters = useMemo(() => {
     const counts = data?.status_counts ?? {}
     const total = Object.values(counts).reduce((a, b) => a + b, 0)
@@ -57,6 +67,10 @@ export function AdminTasksPage() {
     ]
   }, [data])
 
+  /**
+   * 將失敗任務重新排入分析管線。
+   * 副作用：後端會清掉舊分析結果並重跑整條管線（轉檔→萃取→比對），GPU 任務可能耗時數分鐘。
+   */
   const handleReanalyze = async (submissionId: number) => {
     setReanalyzing(submissionId)
     try {
@@ -142,6 +156,7 @@ export function AdminTasksPage() {
                       )}
                     </td>
                     <td className="px-5 py-3.5 text-right">
+                      {/* 只有 FAILED 才給重新分析——重跑進行中/已完成的任務會浪費 GPU 且蓋掉有效結果 */}
                       {t.analysis_status === 'FAILED' && (
                         <button
                           className="btn-ghost inline-flex items-center gap-1.5 text-clay-600"

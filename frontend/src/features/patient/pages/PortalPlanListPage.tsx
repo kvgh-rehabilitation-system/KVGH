@@ -11,7 +11,12 @@ import { StatusBadge } from '../../../components/ui/StatusBadge'
 import type { PortalPlanListItem } from '../../../types'
 import { formatDate, rehabStatusLabel, withRole } from '../../../utils/format'
 
+/**
+ * 病患端復健計畫列表：卡片顯示每份計畫的狀態、主治團隊與前三項目標，
+ * 點卡片進入 PortalPlanDetailPage 看動作與上傳影片。
+ */
 export function PortalPlanListPage() {
+  // null = 載入中（顯示 Loading），[] = 無計畫（顯示 EmptyState）
   const [plans, setPlans] = useState<PortalPlanListItem[] | null>(null)
 
   useEffect(() => {
@@ -52,6 +57,7 @@ export function PortalPlanListPage() {
                   {formatDate(plan.start_date)} 開始 · {withRole(plan.doctor_name, 'doctor')}
                   {plan.nurse_name && ` · ${withRole(plan.nurse_name, 'nurse')}`}
                 </p>
+                {/* 目標最多預覽 3 條，完整清單在詳情頁——卡片高度才不會被長計畫撐爆 */}
                 {plan.goals.length > 0 && (
                   <ul className="mt-3 space-y-1">
                     {plan.goals.slice(0, 3).map((goal) => (

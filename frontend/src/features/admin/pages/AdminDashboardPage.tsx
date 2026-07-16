@@ -18,12 +18,20 @@ import { PageTransition, staggerContainer } from '../../../components/ui/PageTra
 import { SummaryCard } from '../../../components/ui/SummaryCard'
 import type { AdminOverview } from '../../../types'
 
+/**
+ * 位元組數轉人類可讀字串（二進位 1024 進位制），最小單位顯示到 KB。
+ * 影片動輒數百 MB，故 GB/MB 保留一位小數即足夠。
+ */
 function formatBytes(bytes: number): string {
   if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(1)} GB`
   if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toFixed(1)} MB`
   return `${(bytes / 1024).toFixed(0)} KB`
 }
 
+/**
+ * 管理員系統總覽：各角色帳號數、影片分析統計、media 磁碟用量三區塊。
+ * 所有數字由 GET /api/admin/overview 一次算好回傳。
+ */
 export function AdminDashboardPage() {
   const [data, setData] = useState<AdminOverview | null>(null)
 
@@ -33,8 +41,10 @@ export function AdminDashboardPage() {
 
   if (!data) return <Loading />
 
+  // 後端只回傳有帳號的角色，缺的角色補零避免存取 undefined
   const role = (key: string) => data.users[key] ?? { total: 0, active: 0 }
   const disk = data.media_disk
+  // 磁碟使用率以「整顆磁碟」計，不只 media/——讓管理員看到的是主機真實剩餘空間
   const diskUsedRatio = (disk.disk_total_bytes - disk.disk_free_bytes) / disk.disk_total_bytes
 
   return (
@@ -128,6 +138,7 @@ export function AdminDashboardPage() {
               磁碟剩餘 {formatBytes(disk.disk_free_bytes)} / 共 {formatBytes(disk.disk_total_bytes)}
             </p>
           </div>
+          {/* 使用率條：超過 90% 轉紅警示（影片持續累積，磁碟滿了上傳與分析都會失敗） */}
           <div className="mt-3 h-2 overflow-hidden rounded-full bg-parchment">
             <motion.div
               initial={{ width: 0 }}

@@ -19,10 +19,16 @@ import { decisionLabel, formatDate, formatDateTime, rehabStatusLabel, scoreColor
 import { isPipelineActive, statusLabel } from '../../../utils/submissionStatus'
 import { SubmissionUploader } from '../components/SubmissionUploader'
 
+/**
+ * 病患端計畫詳情頁：計畫核心操作頁——看導師示範影片、上傳練習影片、
+ * 追蹤分數趨勢與護理師回饋。上傳後靠輪詢自動更新分析結果。
+ */
 export function PortalPlanDetailPage() {
   const { planId } = useParams()
   const [plan, setPlan] = useState<PortalPlanDetail | null>(null)
 
+  // reload 以 useCallback 固定住，供 usePollingReload 與 SubmissionUploader.onFinished 共用；
+  // 直接覆寫 setPlan、不先清空，避免輪詢刷新時畫面閃一下 Loading
   const reload = useCallback(() => {
     if (planId) getPlan(planId).then(setPlan)
   }, [planId])
@@ -89,6 +95,7 @@ export function PortalPlanDetailPage() {
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               {plan.items.map((item) => (
                 <article key={item.id} className="overflow-hidden rounded-2xl border border-sand bg-white">
+                  {/* 有綁導師影片才能播放示範與上傳比對；未綁時顯示佔位卡（可能只有外部示範連結） */}
                   {item.teacher_video ? (
                     <VideoPlayer
                       src={teacherVideoUrl(item.teacher_video.id)}
@@ -130,6 +137,8 @@ export function PortalPlanDetailPage() {
         </section>
       </div>
 
+      {/* 上傳紀錄：badge 一律用後端預算的 display_status（FAILED > 管線階段 > 業務狀態），
+          summary_text 是演算法自動判讀、feedback 才是護理師人工回饋，兩者並列呈現 */}
       <section className="card p-6">
         <h2 className="font-display text-lg font-semibold text-bark-700">我的上傳紀錄</h2>
         <p className="mt-1 text-xs text-bark-400">查看演算法評分與護理師回饋</p>
@@ -154,6 +163,7 @@ export function PortalPlanDetailPage() {
                     </div>
                   )}
                 </div>
+                {/* 右欄三態：有分數顯示分數、分析失敗顯示錯誤、其餘（管線進行中）顯示轉圈 */}
                 <div className="flex min-w-28 items-center justify-end gap-2">
                   {submission.overall_score !== null ? (
                     <><CheckCircle2 size={18} style={{ color: scoreColor(submission.overall_score) }} /><strong className="text-2xl tabular-nums" style={{ color: scoreColor(submission.overall_score) }}>{Math.round(submission.overall_score)}</strong><span className="text-xs text-bark-300">分</span></>
