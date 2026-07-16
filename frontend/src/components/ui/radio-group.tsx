@@ -1,3 +1,4 @@
+// shadcn/ui 標準元件（Radix RadioGroup 包裝），僅樣式客製
 import * as React from 'react'
 import * as RadioGroupPrimitive from '@radix-ui/react-radio-group'
 import { Circle } from 'lucide-react'

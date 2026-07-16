@@ -1,3 +1,4 @@
+// shadcn/ui 標準元件（Radix Label 包裝），僅樣式客製
 import * as React from 'react'
 import * as LabelPrimitive from '@radix-ui/react-label'
 

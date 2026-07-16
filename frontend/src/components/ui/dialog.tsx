@@ -1,3 +1,4 @@
+// shadcn/ui 標準元件（Radix Dialog 包裝：遮罩/置中/關閉鈕），僅樣式客製
 import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'

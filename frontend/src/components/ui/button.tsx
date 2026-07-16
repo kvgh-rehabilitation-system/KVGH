@@ -1,3 +1,4 @@
+// shadcn/ui 標準元件（Radix Slot + cva 變體樣式），僅按本專案暖色調調整，邏輯未動
 import * as React from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import { cva, type VariantProps } from 'class-variance-authority'

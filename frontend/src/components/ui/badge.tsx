@@ -1,3 +1,4 @@
+// shadcn/ui 標準元件（cva 變體徽章）；狀態色徽章請用自製的 StatusBadge
 import * as React from 'react'
 import { cva, type VariantProps } from 'class-variance-authority'
 

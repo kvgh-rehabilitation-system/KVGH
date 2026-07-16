@@ -1,3 +1,4 @@
+// shadcn/ui 標準元件（原生 input 包裝），僅樣式客製
 import * as React from 'react'
 
 import { cn } from '@/lib/utils'

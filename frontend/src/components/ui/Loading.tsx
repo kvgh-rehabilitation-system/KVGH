@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 
+/** 頁面載入中的三點跳動指示（整頁資料抓取時共用）。 */
 export function Loading() {
   return (
     <div className="flex items-center justify-center py-24">

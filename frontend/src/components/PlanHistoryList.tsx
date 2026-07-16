@@ -12,6 +12,8 @@ interface Props {
 
 const activeStatuses = new Set(['ONGOING', 'PENDING_EVALUATION'])
 
+/** 病患詳細頁的計畫清單：拆「目前計畫 / 歷史計畫」兩節，醫生與護理師端共用
+ *（連結路徑依 role 切換；護理師對進行中計畫多一顆「動作管理」）。 */
 export function PlanHistoryList({ plans, role }: Props) {
   if (plans.length === 0) {
     return <p className="py-10 text-center text-sm text-bark-300">尚無復健計畫</p>

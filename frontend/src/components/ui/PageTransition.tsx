@@ -15,6 +15,7 @@ export function PageTransition({ children }: { children: ReactNode }) {
   )
 }
 
+/** 子項逐一進場的容器 variants（搭配 staggerItem 用在卡片群）。 */
 export const staggerContainer = {
   hidden: {},
   show: {

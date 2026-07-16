@@ -1,3 +1,8 @@
+/**
+ * 全站狀態徽章的色彩對照表（key = 後端狀態 enum 值）。
+ * 語意：綠（sage）=完成/正向、琥珀=等待中、陶土=進行中、rust=異常、灰=結束/中性。
+ * 新增後端狀態時在此補色，未登記的 key 會落到中性灰。
+ */
 const palette: Record<string, string> = {
   // 看診狀態
   WAITING: 'bg-[#FBF3E2] text-[#A87A24]',
@@ -51,6 +56,7 @@ const pulseDot: Record<string, string> = {
   COMPARING: 'bg-clay-500',
 }
 
+/** 狀態徽章：依 status 上色（label 文案由呼叫端從 format.ts 取，色與字分離）。 */
 export function StatusBadge({ status, label }: { status: string; label: string }) {
   const dot = pulseDot[status]
   return (

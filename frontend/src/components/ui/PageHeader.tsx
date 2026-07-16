@@ -7,6 +7,7 @@ interface Props {
   actions?: ReactNode
 }
 
+/** 頁面標題列：標題淡入上移 + 副標延遲淡入，右側放動作按鈕。 */
 export function PageHeader({ title, subtitle, actions }: Props) {
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-4">

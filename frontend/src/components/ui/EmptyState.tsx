@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { Leaf } from 'lucide-react'
 
+/** 空清單佔位（葉子 icon + 訊息），列表查無資料時共用。 */
 export function EmptyState({ message, hint }: { message: string; hint?: string }) {
   return (
     <motion.div

@@ -1,3 +1,4 @@
+// shadcn/ui 標準元件（Radix Tooltip 包裝），僅樣式客製
 import * as React from 'react'
 import * as TooltipPrimitive from '@radix-ui/react-tooltip'
 
