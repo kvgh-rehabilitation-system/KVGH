@@ -10,8 +10,16 @@ interface Props {
   pose: NpyArray | null | undefined
 }
 
-/** 3D 動作重播面板：優先用真實 3D 骨架驅動素體，無資料時退回示意動畫 */
+/**
+ * 3D 動作重播面板，依 pose 載入結果三態切換：
+ * - undefined（.npy 下載中）→ 骨架 Skeleton 占位
+ * - NpyArray（MotionBERT 3D 骨架，(幀, 17, 3) H36M 17 關節）→ HumanReplay 素體重定向重播
+ * - null（磁碟無檔案，如 seed 假資料 404）→ HumanMotionReplay 關節角度示意動畫
+ *
+ * three.js 元件一律走 lazy 版本載入，讓 three 獨立 chunk 不拖慢一般頁面。
+ */
 export function MotionReplayPanel({ analysis, pose }: Props) {
+  // 撈出偏差達 HIGH 的關節名，重播時把對應部位標紅
   const highJoints = analysis.metrics.joint_deviations
     .filter((d) => d.status === 'HIGH')
     .map((d) => d.joint)
@@ -33,6 +41,7 @@ export function MotionReplayPanel({ analysis, pose }: Props) {
       ) : pose ? (
         <LazyHumanReplay
           pose={pose}
+          // .npy 本身不帶 fps，取分析結果的 motion_sequence.fps；缺值時以 30 播放
           fps={analysis.metrics.motion_sequence?.fps || 30}
           highJoints={highJoints}
           className="h-[380px]"

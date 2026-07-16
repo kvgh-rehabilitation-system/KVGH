@@ -12,14 +12,21 @@ import {
 import type { ActionCard, CurvePoint } from '../../../../types'
 
 interface Props {
+  /** 後端 analysis-data 的相似度曲線；x 軸用 t_patient（病患原片秒數） */
   curve: CurvePoint[]
+  /** 關鍵動作卡，疊成曲線上的參考圓點 */
   actions: ActionCard[]
+  /** 點擊曲線任一處的跳轉 callback（父頁面轉呼叫 ComparisonVideoPanel.seekCurvePoint） */
   onSeek: (point: CurvePoint) => void
 }
 
 /**
  * 相似度時間軸：病患影片每一刻與範例的相似度曲線。
  * 可看出病患從何時開始走樣、是整段不穩還是特定段落出錯；點曲線跳到影片對應秒數。
+ *
+ * x 軸刻度顯示的是「病患原片」秒數，但跳轉不能只拿這個數字——CurvePoint 同時帶
+ * t_plain / t_full / t_patient 三條時間軸的秒數，由 ComparisonVideoPanel
+ * 依當前畫面挑用（合成影片 30fps 寫死、與原片時間軸不同，見根目錄 CLAUDE.md）。
  */
 export function SimilarityTimeline({ curve, actions, onSeek }: Props) {
   return (
@@ -35,6 +42,8 @@ export function SimilarityTimeline({ curve, actions, onSeek }: Props) {
           <AreaChart
             data={curve}
             margin={{ top: 10, right: 12, bottom: 0, left: -22 }}
+            // recharts 的點擊事件不直接給資料點，只給 tooltip 命中的索引；
+            // 轉數字並驗證存在後才回傳整個 CurvePoint（跳轉需要它的多軸秒數）
             onClick={(state) => {
               const i = Number(state?.activeTooltipIndex ?? NaN)
               if (Number.isInteger(i) && curve[i]) onSeek(curve[i])
@@ -47,6 +56,8 @@ export function SimilarityTimeline({ curve, actions, onSeek }: Props) {
               </linearGradient>
             </defs>
             <CartesianGrid stroke="#EAE3D8" strokeDasharray="4 6" vertical={false} />
+            {/* x 軸用 type="number" 而非 category：曲線取樣間隔不保證均勻，
+                數值軸才能讓時間比例正確呈現 */}
             <XAxis
               dataKey="t_patient"
               type="number"
@@ -93,6 +104,7 @@ export function SimilarityTimeline({ curve, actions, onSeek }: Props) {
               animationDuration={1100}
               animationEasing="ease-out"
             />
+            {/* 關鍵動作標記點：達標（≥70%）綠、未達標紅，與動作卡的達標門檻一致 */}
             {actions.map((a) => (
               <ReferenceDot
                 key={a.index}

@@ -17,6 +17,7 @@ import { ExtractionPill } from './ExtractionPill'
 
 interface Props {
   video: TeacherVideo
+  /** 所屬資料夾名稱；null 顯示「未分類」（由父頁面用 folder_id 反查後傳入） */
   folderName: string | null
   onPreview: (tv: TeacherVideo) => void
   onRename: (tv: TeacherVideo) => void
@@ -25,7 +26,11 @@ interface Props {
   onDelete: (tv: TeacherVideo) => void
 }
 
-/** 影片庫的單支影片卡：預覽、標註入口、改名/移動/重新萃取/刪除 */
+/**
+ * 影片庫的單支影片卡：預覽、標註入口、改名/移動/重新萃取/刪除。
+ * 純展示元件——所有操作都透過 callback 交回父頁面（對話框與 API 呼叫都在父層），
+ * 卡片本身不持有任何請求狀態。
+ */
 export function LibraryVideoCard({
   video,
   folderName,
@@ -35,6 +40,8 @@ export function LibraryVideoCard({
   onReextract,
   onDelete,
 }: Props) {
+  // 預覽與標註都需要萃取完成；重新萃取只對「已完成」或「失敗」有意義
+  // （處理中重跑會與進行中的任務打架，故不提供）
   const extracted = video.extraction_status === 'EXTRACTED'
   const canReextract = extracted || video.extraction_status === 'FAILED'
 
@@ -64,6 +71,7 @@ export function LibraryVideoCard({
         <ExtractionPill video={video} />
       </div>
 
+      {/* 萃取失敗時把 worker 回報的錯誤原文攤開，方便回報工程端排查 */}
       {video.extraction_status === 'FAILED' && video.extraction_error && (
         <p className="rounded-lg bg-[#FBF5F3] px-3 py-2 text-[11px] leading-relaxed text-rust">
           {video.extraction_error}
@@ -80,6 +88,7 @@ export function LibraryVideoCard({
           <Eye size={13} />
           預覽
         </Button>
+        {/* 標註是影片級屬性（影響所有引用此影片的動作）；未萃取完成前只給停用按鈕 */}
         {extracted ? (
           <Button variant="ghost" size="sm" asChild>
             <Link to={`/nurse/teacher-videos/${video.id}/annotate`}>

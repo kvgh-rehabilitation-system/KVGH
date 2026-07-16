@@ -24,7 +24,9 @@ import { formatDate, withRole } from '../../../../utils/format'
 import { ExtractionPill } from './ExtractionPill'
 
 interface Props {
+  /** 要預覽的影片；null 時整個對話框不渲染（開關由「是否有影片」決定，沒有獨立 open prop） */
   video: TeacherVideo | null
+  /** 所屬資料夾名稱；null 顯示「未分類」 */
   folderName: string | null
   onOpenChange: (open: boolean) => void
   onRename: (tv: TeacherVideo) => void
@@ -33,6 +35,11 @@ interface Props {
   onDelete: (tv: TeacherVideo) => void
 }
 
+/**
+ * 影片庫的大尺寸預覽對話框：播放影片 + 中繼資訊 + 管理快捷列。
+ * 快捷列與 LibraryVideoCard 的操作相同（同一組 callback 由父頁面統一處理），
+ * 讓使用者看完影片不必關窗就能改名/移動/重新萃取/刪除。
+ */
 export function PreviewVideoDialog({
   video,
   folderName,
@@ -44,11 +51,13 @@ export function PreviewVideoDialog({
 }: Props) {
   if (!video) return null
 
+  // 與 LibraryVideoCard 相同的可操作性判斷（標註需已萃取；重新萃取限完成/失敗）
   const extracted = video.extraction_status === 'EXTRACTED'
   const canReextract = extracted || video.extraction_status === 'FAILED'
   const title = video.name ?? video.original_filename ?? `影片 #${video.id}`
 
   return (
+    // open 恆為 true：video != null 才會走到這裡，關閉靠 onOpenChange 把父層的 video 清成 null
     <Dialog open onOpenChange={onOpenChange}>
       <DialogContent className="grid h-[90dvh] max-h-[52rem] w-[90vw] max-w-6xl grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden bg-cream p-0">
         <DialogHeader className="border-b border-sand/80 bg-white px-5 py-4 pr-14 sm:px-6 sm:py-5 sm:pr-16">
@@ -74,6 +83,7 @@ export function PreviewVideoDialog({
           </div>
         </DialogHeader>
 
+        {/* 影片 URL 走 teacherVideoUrl() 的 ?token= 認證（<video> 帶不了 Bearer header） */}
         <div className="flex min-h-0 items-center justify-center bg-bark-800 p-2 sm:p-4">
           <VideoPlayer
             src={teacherVideoUrl(video.id)}

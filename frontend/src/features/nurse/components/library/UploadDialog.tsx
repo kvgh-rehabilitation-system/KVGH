@@ -31,18 +31,24 @@ interface Props {
   onUploaded: () => void
 }
 
+// Radix Select 的 value 不接受空字串，用哨兵字串代表「未分類」
 const NONE = 'none'
 
-/** 上傳導師影片進影片庫（名稱必填，可直接歸入資料夾） */
+/**
+ * 上傳導師影片進影片庫（名稱必填，可直接歸入資料夾）。
+ * 預設資料夾帶入頁面目前篩選中的資料夾，減少「上傳後還要再移動」的操作。
+ */
 export function UploadDialog({ open, onOpenChange, folders, defaultFolderId, onUploaded }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [name, setName] = useState('')
+  // Select 統一用字串 value；數字資料夾 id 轉字串存放
   const [folderId, setFolderId] = useState<string>(
     defaultFolderId != null ? String(defaultFolderId) : NONE,
   )
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
 
+  /** 清空整份表單回到初始值（含 file input，否則重選同檔不觸發 onChange） */
   const reset = () => {
     setName('')
     setFile(null)
@@ -50,6 +56,11 @@ export function UploadDialog({ open, onOpenChange, folders, defaultFolderId, onU
     if (fileRef.current) fileRef.current.value = ''
   }
 
+  /**
+   * 送出上傳。兩步 API：先 createTeacherVideo 上傳檔案，
+   * 有選資料夾再 updateTeacherVideo 補歸類（上傳 API 本身不收 folder_id）。
+   * 注意：第二步失敗時影片已在庫中（會落在未分類），只會看到錯誤 toast。
+   */
   const submit = async () => {
     const clean = name.trim()
     if (!clean) {
@@ -78,6 +89,7 @@ export function UploadDialog({ open, onOpenChange, folders, defaultFolderId, onU
   }
 
   return (
+    // 上傳進行中鎖住關閉（點遮罩/Esc 都擋），避免上傳到一半表單被收掉
     <Dialog open={open} onOpenChange={(o) => !uploading && onOpenChange(o)}>
       <DialogContent className="max-w-md">
         <DialogHeader>
@@ -114,6 +126,7 @@ export function UploadDialog({ open, onOpenChange, folders, defaultFolderId, onU
           </div>
           <div>
             <p className="label mb-1.5">影片檔案</p>
+            {/* 隱藏原生 file input，用樣式化按鈕代為觸發（原生外觀無法客製） */}
             <input
               ref={fileRef}
               type="file"

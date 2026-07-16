@@ -26,15 +26,26 @@ interface Props {
   onChanged: () => void
 }
 
-/** 資料夾管理：新增、改名、刪除（刪除後夾內影片移至未分類） */
+/**
+ * 資料夾管理對話框：新增、改名、刪除（刪除後夾內影片移至未分類，影片本身不會被刪）。
+ * 資料夾是全院共享的分類，任何異動都透過 onChanged() 通知父頁面重抓。
+ *
+ * 改名與刪除採「列內就地編輯/確認」而非另開對話框：每列同時只會處於
+ * 一種模式（editingId / pendingDeleteId 互斥，切換其一會清掉另一個）。
+ */
 export function ManageFoldersDialog({ open, onOpenChange, folders, onChanged }: Props) {
+  // 新增資料夾的輸入與請求狀態
   const [newName, setNewName] = useState('')
   const [creating, setCreating] = useState(false)
+  // 就地改名：editingId 標記哪一列在編輯、editName 是編輯中的暫存值
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editName, setEditName] = useState('')
+  // 兩段式刪除：先把該列切成「確認刪除」模式，再按一次才真的刪
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null)
+  // 改名/刪除共用的請求進行中旗標（避免連點）
   const [busy, setBusy] = useState(false)
 
+  /** 建立新資料夾；成功後清空輸入框讓使用者可連續新增 */
   const create = async () => {
     const clean = newName.trim()
     if (!clean) {
@@ -54,6 +65,7 @@ export function ManageFoldersDialog({ open, onOpenChange, folders, onChanged }: 
     }
   }
 
+  /** 就地改名；名稱沒變時直接關閉編輯模式、不打 API */
   const rename = async (folder: TeacherVideoFolder) => {
     const clean = editName.trim()
     if (!clean) {
@@ -77,6 +89,7 @@ export function ManageFoldersDialog({ open, onOpenChange, folders, onChanged }: 
     }
   }
 
+  /** 確認刪除資料夾（後端會把夾內影片移到未分類，不刪影片） */
   const remove = async (folder: TeacherVideoFolder) => {
     setBusy(true)
     try {
@@ -127,6 +140,7 @@ export function ManageFoldersDialog({ open, onOpenChange, folders, onChanged }: 
                 key={f.id}
                 className="flex items-center gap-2 rounded-xl border border-sand bg-white px-3.5 py-2.5"
               >
+                {/* 每列三態：編輯中（輸入框）/ 待確認刪除（警示文 + 確認鈕）/ 一般顯示 */}
                 {editingId === f.id ? (
                   <>
                     <Input

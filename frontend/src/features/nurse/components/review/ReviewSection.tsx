@@ -38,20 +38,34 @@ interface Props {
   readOnly?: boolean
 }
 
-/** 審核與回饋區：通過／需注意 + 給病患留言 + 回報醫生 */
+/**
+ * 審核與回饋區：通過／需注意 + 給病患留言 + 回報醫師。
+ *
+ * 三種顯示模式：
+ * - 已審核（status === 'REVIEWED'）→ 唯讀顯示審核結果與留言
+ * - readOnly（如醫師端借看）→ 只顯示「尚未完成審核」提示，不給表單
+ * - 其餘 → 審核表單（發光邊框提示這是待辦重點）
+ */
 export function ReviewSection({ data, onSuccess, readOnly = false }: Props) {
   const reviewed = data.status === 'REVIEWED'
+  // 表單初值帶入既有資料（未審核時通常為空；若後端已有值則顯示為預設）
   const [feedback, setFeedback] = useState(data.feedback ?? '')
   const [decision, setDecision] = useState<ReviewDecision | null>(data.decision)
   const [submitting, setSubmitting] = useState(false)
 
-  // 回報醫生
+  // 回報醫師對話框的獨立表單狀態（與審核表單互不影響）
   const [reportOpen, setReportOpen] = useState(false)
   const [reportKind, setReportKind] = useState<ReportKind>('STATUS_REPORT')
   const [reportSeverity, setReportSeverity] = useState('NORMAL')
   const [reportContent, setReportContent] = useState('')
   const [reporting, setReporting] = useState(false)
 
+  /**
+   * 送出審核結果（decision 必選、留言可空）。
+   *
+   * 成功時刻意不還原 submitting：onSuccess() 會播成功動畫並導回列表，
+   * 按鈕保持停用可避免動畫期間重複送出。
+   */
   const submitReview = async () => {
     if (!decision) {
       toast.error('請選擇審核結果（通過 / 需注意）')
@@ -67,6 +81,10 @@ export function ReviewSection({ data, onSuccess, readOnly = false }: Props) {
     }
   }
 
+  /**
+   * 向主治醫師建立回報（掛在 plan 與此 submission 上，醫師端儀表板會看到）。
+   * 成功後關閉對話框並清空內容；類型/嚴重度保留上次選擇，方便連續回報。
+   */
   const submitReport = async () => {
     if (!reportContent.trim()) {
       toast.error('請填寫回報內容')
@@ -92,11 +110,13 @@ export function ReviewSection({ data, onSuccess, readOnly = false }: Props) {
   }
 
   return (
+    // 待審核狀態加發光邊框，把視線引導到本區（審核是這個頁面的主要任務）
     <section className={`card p-6 ${reviewed || readOnly ? '' : 'border-clay-200/80 shadow-glow'}`}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-base font-semibold text-bark-700">
           {reviewed ? '審核結果' : readOnly ? '審核狀態' : '審核與回饋'}
         </h2>
+        {/* 回報醫師：與審核流程獨立，已審核後仍可回報（僅 readOnly 隱藏） */}
         {!readOnly && (
           <Dialog open={reportOpen} onOpenChange={setReportOpen}>
             <DialogTrigger asChild>
@@ -167,9 +187,11 @@ export function ReviewSection({ data, onSuccess, readOnly = false }: Props) {
         )}
       </div>
 
+      {/* 主內容三分支：已審核（結果唯讀）/ readOnly（提示文字）/ 審核表單 */}
       {reviewed ? (
         <div className="space-y-3 text-sm">
           <div className="flex items-center gap-2">
+            {/* REVIEWED 狀態下 decision 必有值（後端審核 API 強制帶 decision），可安全斷言 */}
             <StatusBadge status={data.decision!} label={decisionLabel[data.decision!]} />
             <span className="text-xs text-bark-300">
               {withRole(data.reviewer_name, 'nurse')}・{formatDateTime(data.reviewed_at)}
@@ -196,6 +218,7 @@ export function ReviewSection({ data, onSuccess, readOnly = false }: Props) {
               rows={3}
             />
           </div>
+          {/* 二選一決策鈕：選中者以主題色實底標示（通過=鼠尾草綠、需注意=鏽紅） */}
           <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={() => setDecision('APPROVED')}

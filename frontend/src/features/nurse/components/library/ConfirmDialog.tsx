@@ -21,7 +21,10 @@ interface Props {
   onConfirm: () => Promise<void>
 }
 
-/** 破壞性/重要操作的確認彈窗（刪除影片、重新萃取等） */
+/**
+ * 破壞性/重要操作的通用確認彈窗（刪除影片、重新萃取等）。
+ * 泛用元件：文案與動作全由 props 注入，本身只負責 busy 狀態與開關時機。
+ */
 export function ConfirmDialog({
   open,
   onOpenChange,
@@ -33,6 +36,7 @@ export function ConfirmDialog({
 }: Props) {
   const [busy, setBusy] = useState(false)
 
+  /** 執行 onConfirm：成功關窗；失敗保持開啟讓使用者可重試（錯誤 toast 由呼叫端顯示） */
   const confirm = async () => {
     setBusy(true)
     try {
@@ -46,6 +50,7 @@ export function ConfirmDialog({
   }
 
   return (
+    // 請求進行中鎖住關閉（點遮罩/Esc 都擋），避免操作結果不明時彈窗先消失
     <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
       <DialogContent className="max-w-md">
         <DialogHeader>

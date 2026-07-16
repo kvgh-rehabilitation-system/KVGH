@@ -5,22 +5,36 @@ import type { JointDeviation } from '../../../../types'
 const THRESHOLD = 15
 const SATURATE = 25
 
+// 三段色錨點，對應 tailwind palette（sage / amber / rust），供漸層插值用
 const GREEN = [138, 155, 110] // sage
 const AMBER = [217, 164, 65]
 const RED = [181, 84, 59] // rust
 
+/**
+ * 兩個 RGB 色之間線性插值。
+ * @param t 插值比例 0（純 a）～1（純 b）
+ * @returns CSS rgb() 字串
+ */
 function mix(a: number[], b: number[], t: number): string {
   const c = a.map((v, i) => Math.round(v + (b[i] - v) * t))
   return `rgb(${c[0]},${c[1]},${c[2]})`
 }
 
-/** 偏差度數 → 連續色（≤15° 綠→琥珀，>15° 琥珀→紅） */
+/**
+ * 偏差度數 → 連續熱區色（≤15° 綠→琥珀，>15° 琥珀→紅，≥25° 飽和純紅）。
+ * 用兩段插值而非單段，讓門檻 15° 恰好落在琥珀色，視覺上與文案「明顯偏差」對齊。
+ * export 供其他偏差視覺化元件共用同一套配色。
+ */
 export function heatColor(deg: number): string {
   if (deg <= THRESHOLD) return mix(GREEN, AMBER, Math.max(0, deg / THRESHOLD))
   return mix(AMBER, RED, Math.min(1, (deg - THRESHOLD) / (SATURATE - THRESHOLD)))
 }
 
-/** 人形圖上的關節座標（正面視角：病患面向你，畫面右側 = 病患左側） */
+/**
+ * 人形圖上的關節座標（viewBox 0 0 200 320，正面視角：病患面向你，
+ * 所以畫面右側 = 病患左側）。anchor 決定文字標籤往內或往外對齊，
+ * 讓左右兩側的標籤都朝人形外側展開、不互相重疊。
+ */
 const JOINT_POS: Record<string, { x: number; y: number; anchor: 'start' | 'end' }> = {
   left_shoulder: { x: 127, y: 78, anchor: 'start' },
   right_shoulder: { x: 73, y: 78, anchor: 'end' },
@@ -33,8 +47,11 @@ const JOINT_POS: Record<string, { x: number; y: number; anchor: 'start' | 'end' 
 }
 
 /**
- * 人體熱區圖：8 關節依偏差程度上色，一眼看出問題部位。
- * 偏差 = 關鍵動作時與範例影片的平均角度差。
+ * 人體熱區圖：8 關節（雙肩/肘/髖/膝）依偏差程度上色，一眼看出問題部位。
+ * 偏差 = 各關鍵動作當下，病患與範例影片該關節夾角的平均差距（後端 angles.json 統計）。
+ *
+ * @param deviations 後端 analysis-data 的 joint_deviations；不在 JOINT_POS
+ *   映射內的關節名會被靜默略過（前後端關節清單解耦，後端加關節不會炸前端）
  */
 export function BodyHeatmap({ deviations }: { deviations: JointDeviation[] }) {
   return (
@@ -59,15 +76,17 @@ export function BodyHeatmap({ deviations }: { deviations: JointDeviation[] }) {
             <path d="M 88 164 Q 83 200 83 238 Q 83 270 86 296" strokeWidth="15" />
           </g>
 
-          {/* 關節熱點 */}
+          {/* 關節熱點：實心圓上色 + 標籤 + 度數；HIGH 關節加外擴脈衝環吸引注意 */}
           {deviations.map((d, i) => {
             const pos = JOINT_POS[d.joint]
             if (!pos) return null
             const color = heatColor(d.deviation_deg)
             const high = d.status === 'HIGH'
+            // 標籤沿 anchor 方向外推 14px，避免壓在關節圓點上
             const labelX = pos.anchor === 'start' ? pos.x + 14 : pos.x - 14
             return (
               <g key={d.joint}>
+                {/* 無限循環的脈衝環：delay 依索引錯開，避免所有 HIGH 關節同步閃爍 */}
                 {high && (
                   <motion.circle
                     cx={pos.x}
@@ -118,7 +137,7 @@ export function BodyHeatmap({ deviations }: { deviations: JointDeviation[] }) {
         </svg>
       </div>
 
-      {/* 圖例 */}
+      {/* 圖例：漸層條與 heatColor 的兩段插值對齊（60% 處為琥珀 ≈ 15° 門檻位置） */}
       <div className="mt-2 px-2">
         <div
           className="h-1.5 w-full rounded-full"

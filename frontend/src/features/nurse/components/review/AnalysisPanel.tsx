@@ -3,7 +3,10 @@ import { ScoreRadial } from '../../../../components/ui/ScoreRadial'
 import type { Analysis } from '../../../../types'
 import { BodyHeatmap } from './BodyHeatmap'
 
-/** 演算法分析面板：四分數環 + 自動判讀文字 + 人體熱區圖 */
+/**
+ * 演算法分析面板：四分數環 + 自動判讀文字 + 人體熱區圖。
+ * summary_text 是演算法輸出的自動判讀，不是護理師評論（護理師回饋在 ReviewSection）。
+ */
 export function AnalysisPanel({ analysis }: { analysis: Analysis }) {
   return (
     <section className="card p-6">

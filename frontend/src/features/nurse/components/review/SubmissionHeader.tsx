@@ -5,7 +5,13 @@ import type { SubmissionDetail } from '../../../../types'
 import { decisionLabel, formatDateTime, genderLabel } from '../../../../utils/format'
 import { statusLabel } from '../../../../utils/submissionStatus'
 
-/** 審核頁標頭：動作名稱、狀態、病患與計畫資訊 */
+/**
+ * 審核頁標頭：動作名稱、狀態徽章、病患與計畫資訊。
+ *
+ * 護理師與醫師端共用：role 決定病患連結導向哪個角色的病患詳情路由，
+ * readOnly（醫師借看時）額外顯示「唯讀檢視」標示。
+ * 狀態徽章一律用後端預算的 display_status（勿自行組合 status + analysis_status）。
+ */
 export function SubmissionHeader({
   data,
   role = 'nurse',
@@ -23,6 +29,7 @@ export function SubmissionHeader({
           status={data.display_status}
           label={statusLabel(data.display_status)}
         />
+        {/* 已審核才有 decision（通過/需注意），與分析狀態徽章並列 */}
         {data.decision && (
           <StatusBadge status={data.decision} label={decisionLabel[data.decision]} />
         )}
