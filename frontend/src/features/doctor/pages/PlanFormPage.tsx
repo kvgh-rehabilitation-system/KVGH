@@ -34,7 +34,13 @@ const emptyItem: FormItem = {
   teacher_video_id: null,
 }
 
-/** 建立 / 調整復健計畫共用表單 */
+/**
+ * 建立 / 調整復健計畫共用表單。
+ * create：從病患頁進入，可指定護理師與開始日期。
+ * adjust：從計畫頁進入，預填目前版本內容；儲存會產生新版本快照
+ * （後端關閉舊版本、依表單內容重建 items），計畫名稱與護理師不可改，
+ * 且必填「本次調整摘要」供版本歷史追溯。
+ */
 export function PlanFormPage({ mode }: Props) {
   const { patientId, planId } = useParams()
   const navigate = useNavigate()
@@ -55,6 +61,7 @@ export function PlanFormPage({ mode }: Props) {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
+  // 依模式載入初始資料：create 只需病患名，adjust 需把目前版本內容灌進表單
   useEffect(() => {
     listNurses().then(setNurses)
     if (mode === 'create' && patientId) {
@@ -70,6 +77,8 @@ export function PlanFormPage({ mode }: Props) {
         const current = plan.current_version
         if (current) {
           setGoals(current.goals.length ? current.goals : [''])
+          // teacher_video_id 原樣帶回：顯式帶 id 時後端以它為準（動作改名也不斷綁），
+          // 沒帶時後端 fallback 到前一版同名動作的綁定；teacherVideo 物件僅供顯示徽章，送出前剝掉
           setItems(
             current.items.length
               ? current.items.map((i) => ({
@@ -97,10 +106,15 @@ export function PlanFormPage({ mode }: Props) {
   const backTo =
     mode === 'create' ? `/doctor/patients/${patientId}` : `/doctor/rehabilitation-plans/${planId}`
 
+  /** 更新第 index 列復健項目的單一欄位（不可變更新，維持 React 狀態語意）。 */
   const updateItem = (index: number, field: keyof PlanItemInput, value: string | number) => {
     setItems((prev) => prev.map((item, i) => (i === index ? { ...item, [field]: value } : item)))
   }
 
+  /**
+   * 送出表單：先清洗（去空白目標、去無名稱項目、剝掉顯示用 teacherVideo），
+   * 再依模式呼叫 createPlan / adjustPlan，成功導向計畫詳情頁。
+   */
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')

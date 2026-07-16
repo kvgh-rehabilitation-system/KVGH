@@ -33,6 +33,8 @@ interface DecisionOption {
   hint: string
 }
 
+// 五種復健決策選項。後端只對 END_PLAN 有副作用（結束目前計畫）；
+// CREATE_PLAN / ADJUST_PLAN 是由前端在儲存後導向對應表單完成，看診紀錄本身只記錄決策
 const decisions: DecisionOption[] = [
   { key: 'NO_REHAB', icon: Ban, tone: 'bg-parchment text-bark-500', hint: '本次不安排復健，持續觀察' },
   { key: 'CREATE_PLAN', icon: FilePlus2, tone: 'bg-clay-50 text-clay-600', hint: '為病患建立新的居家復健計畫' },
@@ -41,6 +43,10 @@ const decisions: DecisionOption[] = [
   { key: 'END_PLAN', icon: FlagTriangleRight, tone: 'bg-[#F7E8E4] text-rust', hint: '結束目前的復健計畫' },
 ]
 
+/**
+ * 醫師端新增看診紀錄頁：主訴/診斷/評估三欄位 + 復健決策單選 + 選填回診日。
+ * 決策選項依「是否已有進行中計畫」動態鎖定，避免建立第二份有效計畫或操作不存在的計畫。
+ */
 export function CreateVisitRecordPage() {
   const { patientId } = useParams()
   const navigate = useNavigate()
@@ -59,11 +65,17 @@ export function CreateVisitRecordPage() {
 
   if (!patient) return <Loading />
 
+  // 互斥規則：已有進行中計畫就不能再「建立」；沒有計畫則「繼續/調整/結束」都無對象可操作
   const hasActivePlan = patient.current_plan !== null
   const decisionDisabled = (d: string) =>
     (d === 'CREATE_PLAN' && hasActivePlan) ||
     (['CONTINUE_PLAN', 'ADJUST_PLAN', 'END_PLAN'].includes(d) && !hasActivePlan)
 
+  /**
+   * 儲存看診紀錄後依決策分流：CREATE_PLAN → 建立計畫表單、
+   * ADJUST_PLAN → 目前計畫的調整表單、其餘 → 回病患詳情頁。
+   * 成功路徑不重置 submitting——按鈕保持鎖定直到導頁完成，防止重複送出。
+   */
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!patientId || !decision) return
@@ -191,6 +203,7 @@ export function CreateVisitRecordPage() {
             {decisions.map((d, index) => {
               const disabled = decisionDisabled(d.key)
               const selected = decision === d.key
+              // 五個選項排兩欄會剩一個孤兒卡，最後一張奇數卡橫跨整列補滿版面
               const isLastOdd = index === decisions.length - 1 && decisions.length % 2 === 1
               return (
                 <motion.label

@@ -26,6 +26,10 @@ const rehabFilters = [
   { key: 'CLOSED', label: '已結案' },
 ]
 
+/**
+ * 醫師端病患列表：搜尋 + 初/回診與復健狀態篩選 + 逾期未回診標記。
+ * 一次撈全量、前端篩選——病患數量在原型規模下（數十人）不需分頁與後端查詢。
+ */
 export function PatientListPage() {
   const [patients, setPatients] = useState<PatientListItem[] | null>(null)
   const [search, setSearch] = useState('')
@@ -36,6 +40,7 @@ export function PatientListPage() {
     listPatients({}).then(setPatients)
   }, [])
 
+  // 搜尋比對姓名與病歷號（病歷號不分大小寫）；三個條件為 AND 關係
   const filtered = useMemo(() => {
     if (!patients) return []
     return patients.filter((p) => {

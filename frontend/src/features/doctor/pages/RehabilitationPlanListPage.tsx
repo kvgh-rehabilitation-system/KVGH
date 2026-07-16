@@ -14,6 +14,8 @@ import { SummaryCard } from '../../../components/ui/SummaryCard'
 import type { PlanListItem, PlanListSummary } from '../../../types'
 import { formatDate, rehabStatusLabel } from '../../../utils/format'
 
+// 狀態篩選 chip；ACTIVE 是後端提供的虛擬鍵（= ONGOING + PENDING_EVALUATION），
+// 醫師日常只關心有效計畫，故以它為預設值
 const statusFilters = [
   { key: 'ACTIVE', label: '有效計畫' },
   { key: 'ONGOING', label: '進行中' },
@@ -23,16 +25,23 @@ const statusFilters = [
   { key: 'CANCELLED', label: '已取消' },
 ]
 
+/**
+ * 醫師端復健計畫列表：頂部統計卡 + 搜尋/狀態篩選 + 計畫表格。
+ * 搜尋與篩選由後端執行（listPlans 帶 query 參數），與病患列表的前端篩選不同。
+ */
 export function RehabilitationPlanListPage() {
   const [summary, setSummary] = useState<PlanListSummary | null>(null)
   const [plans, setPlans] = useState<PlanListItem[] | null>(null)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('ACTIVE')
 
+  // 統計卡只載入一次——它是全域計數，不隨下方篩選條件變動
   useEffect(() => {
     getPlanSummary().then(setSummary)
   }, [])
 
+  // 條件一變就重查；先清成 null 讓表格區顯示 Loading
+  // （FIXME: 搜尋無 debounce，每敲一字就打一次 API 並閃一次 Loading）
   useEffect(() => {
     setPlans(null)
     listPlans({ search: search || undefined, status }).then(setPlans)

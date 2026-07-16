@@ -52,10 +52,16 @@ const statusFilters = [
   { key: 'COMPLETED', label: '已完成' },
 ]
 
+/**
+ * 醫師端首頁儀表板：今日看診統計 + 今日病患清單（狀態篩選）+
+ * 護理師異常回報處理 + 待評估計畫提醒。
+ * 回報回覆走 Dialog，處理完即從待處理清單消失（後端標記 REVIEWED）。
+ */
 export function DoctorDashboardPage() {
   const { user } = useAuth()
   const [data, setData] = useState<DoctorDashboard | null>(null)
   const [filter, setFilter] = useState('ALL')
+  // 正在回覆的回報；非 null 即開啟回覆 Dialog
   const [replying, setReplying] = useState<NurseReport | null>(null)
   const [comment, setComment] = useState('')
   const [saving, setSaving] = useState(false)
@@ -66,10 +72,15 @@ export function DoctorDashboardPage() {
 
   if (!data) return <Loading />
 
+  // 看診狀態篩選在前端做——今日病患數量小，資料已在手上
   const patients = data.today_patients.filter(
     (p) => filter === 'ALL' || p.status === filter,
   )
 
+  /**
+   * 回覆並結案護理師回報（回覆內容選填）。
+   * 副作用：後端把回報標為已處理；成功後重抓整份儀表板讓計數與清單同步更新。
+   */
   const submitReply = async () => {
     if (!replying) return
     setSaving(true)
@@ -184,7 +195,7 @@ export function DoctorDashboardPage() {
         </section>
 
         <div className="space-y-6">
-          {/* 護理師回報 */}
+          {/* 護理師回報：僅在有待處理項目時顯示整個區塊（紅框強調異常性質） */}
           {data.pending_reports.length > 0 && (
             <section className="card border-rust/25 p-6">
               <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-bark-700">

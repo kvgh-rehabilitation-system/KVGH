@@ -27,9 +27,15 @@ import {
 import { isPipelineActive, statusLabel } from '../../../utils/submissionStatus'
 
 interface Props {
+  /** 醫護共用此頁：依角色切換 API 來源、返回連結與操作按鈕（醫師可調整/結束，護理師管理動作） */
   role?: 'doctor' | 'nurse'
 }
 
+/**
+ * 復健計畫詳情頁（醫師/護理師共用）：計畫 header + 目前版本的目標與項目 +
+ * 分數/完成率趨勢 + 上傳審核紀錄表 + 歷史版本手風琴。
+ * 放在 doctor feature 下但由兩種角色的路由掛載，透過 role prop 區分。
+ */
 export function RehabilitationPlanDetailPage({ role = 'doctor' }: Props) {
   const { planId } = useParams()
   const navigate = useNavigate()
@@ -38,6 +44,7 @@ export function RehabilitationPlanDetailPage({ role = 'doctor' }: Props) {
   const [error, setError] = useState('')
   const [confirmClose, setConfirmClose] = useState(false)
 
+  // 上傳紀錄獨立成 reload 函式：輪詢只重抓這一份（計畫本體不會因分析進度改變）
   const reloadSubs = useCallback(() => {
     if (!planId) return
     const loadSubmissions = role === 'doctor' ? getDoctorPlanSubmissions : getNursePlanSubmissions
@@ -60,9 +67,14 @@ export function RehabilitationPlanDetailPage({ role = 'doctor' }: Props) {
 
   if (!plan) return <Loading />
 
+  // 有效計畫（進行中/待評估）才顯示調整、結束、動作管理等操作按鈕
   const isActive = ['ONGOING', 'PENDING_EVALUATION'].includes(plan.status)
   const current = plan.current_version
 
+  /**
+   * 結束計畫（僅醫師可見此按鈕）。副作用：後端把計畫標為 CLOSED，不可復原；
+   * 成功後重抓計畫本體更新狀態與按鈕列。
+   */
   const handleClose = async () => {
     if (!planId) return
     try {
@@ -252,6 +264,7 @@ export function RehabilitationPlanDetailPage({ role = 'doctor' }: Props) {
                     </tr>
                   </thead>
                   <tbody>
+                    {/* 整列可點：依角色導向各自的審核/檢視頁（醫師唯讀、護理師可審核） */}
                     {subs.submissions.map((submission) => (
                       <tr
                         key={submission.id}
@@ -331,6 +344,10 @@ export function RehabilitationPlanDetailPage({ role = 'doctor' }: Props) {
   )
 }
 
+/**
+ * 單一計畫版本的摺疊卡：標頭顯示版號/起訖日/是否現行，展開顯示變更摘要、目標與項目。
+ * 現行版本預設展開，歷史版本收合。
+ */
 function VersionAccordion({
   version,
   defaultOpen,

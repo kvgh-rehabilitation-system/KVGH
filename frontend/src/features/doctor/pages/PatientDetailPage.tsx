@@ -32,6 +32,10 @@ const tabs = [
   { key: 'plan', label: '復健計畫' },
 ]
 
+/**
+ * 醫師端病患詳情頁：基本資料 header + 統計卡 + 三分頁（概覽/看診歷史/計畫歷史）。
+ * 資料由 GET /api/doctor/patients/{id} 一次取回，分頁切換純前端、不重新載入。
+ */
 export function PatientDetailPage() {
   const { patientId } = useParams()
   const [detail, setDetail] = useState<PatientDetail | null>(null)
@@ -146,6 +150,7 @@ export function PatientDetailPage() {
   )
 }
 
+/** 概覽分頁：最近一次看診的主訴/診斷/評估 + 目前計畫卡並排。 */
 function OverviewTab({ detail }: { detail: PatientDetail }) {
   const { latest_visit } = detail
   return (
@@ -187,6 +192,7 @@ function OverviewTab({ detail }: { detail: PatientDetail }) {
   )
 }
 
+/** 計畫分頁：所有計畫（含已結案）的歷史清單，共用 PlanHistoryList 元件。 */
 function PlanTab({ detail }: { detail: PatientDetail }) {
   return (
     <section className="card p-6">
@@ -196,6 +202,10 @@ function PlanTab({ detail }: { detail: PatientDetail }) {
   )
 }
 
+/**
+ * 目前進行中計畫的摘要卡。
+ * compact 用於概覽分頁的並排版面：空狀態時省略提示文字讓卡片高度貼齊左欄。
+ */
 function PlanCardSection({ detail, compact = false }: { detail: PatientDetail; compact?: boolean }) {
   const plan = detail.current_plan
   return (
