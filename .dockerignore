@@ -1,0 +1,16 @@
+# 只有 worker image 用根目錄當 build context（worker/Dockerfile 的 context: .），
+# 此檔採 allowlist：先全排除，再放行 worker build 實際 COPY 的路徑。
+# 沒有這份檔案時，media/、測試影片、frontend/node_modules 全會被打包送給
+# docker daemon——改前端也會讓 worker 的 context 重傳，這就是全部 rebuild 變慢的元凶。
+# （frontend/、backend/ 各自的 build context 是自己的目錄，不受此檔影響）
+*
+
+# worker/Dockerfile 的 COPY 清單：worker/、backend/app、algorithm/requirements.txt
+!worker
+!backend/app
+!algorithm/requirements.txt
+
+# 放行目錄內仍要剔除的垃圾
+**/__pycache__
+**/*.pyc
+**/.pytest_cache

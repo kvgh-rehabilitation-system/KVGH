@@ -9,6 +9,7 @@ React 19 + Vite + TypeScript + Tailwind 3.4 + framer-motion。設計語言：溫
 - 媒體 URL：`src/api/media.ts` 產生 `<video>` 用的 `?token=` URL（video 標籤帶不了 header）；非 video 的二進位（如 .npy）走 axios `responseType:'arraybuffer'` 即可用 Bearer
 - 3D（three.js/@react-three/fiber/drei）一律經 `src/components/three/lazy.tsx` lazy 載入，讓 three 獨立 chunk 不拖慢一般頁面
 - 圖表用 recharts；色票直接用 hex（palette 見 `tailwind.config.js`：cream/parchment/sand、clay-500 `#C67B5C`、sage `#8A9B6E`、rust `#B5543B`、amber `#D9A441`）
+- **影片分析狀態文案唯一來源 `src/utils/submissionStatus.ts`**：badge 一律用後端預算的 `display_status`（FAILED > 管線階段 > 業務狀態，勿自行組合 `status`+`analysis_status`），醫護/管理員用 `statusLabel(s)`、病患用 `statusLabel(s,'patient')`；「分析中→完成」的自動刷新用 `src/hooks/usePollingReload.ts`（reload 不得先清空資料）
 
 ## 審核頁元件地圖（`features/nurse/pages/SubmissionReviewPage.tsx`）
 

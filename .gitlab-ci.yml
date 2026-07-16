@@ -1,0 +1,95 @@
+# KVGH GitLab CI/CD（實驗室自架 GitLab）
+#
+# 分支模型：
+#   main = 整合分支：push / MR 只跑 validate（docker build 即驗證：前端含 tsc、
+#          worker 含依賴安裝），同時在本機 runner 預熱 layer cache
+#   prod = 部署分支：validate 全綠後 deploy-prod 自動部署（本機 = PROD）
+#          促版：git push origin main:prod（fast-forward）
+#   uat  = 未來擴充佔位：需另建 uat runner 並設 CI variable UAT_ENABLED=true
+#
+# 選擇性 rebuild 兩層機制：
+#   1) validate 層：rules:changes —— 沒改到的服務連 build job 都不會出現
+#   2) deploy 層：scripts/deploy_prod.sh 用 git diff 已部署SHA..目標SHA 決定
+#      要 build 哪些服務（部署間可能跨多個 commit，不能只看本次 push）
+#
+# Runner 需求（見 README「CI/CD」）：本機 shell executor、tag `prod`、
+# gitlab-runner 使用者加 docker group、建議勾 protected branches only。
+
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "prod"'
+    - if: '$CI_COMMIT_BRANCH == "uat"'
+
+stages:
+  - validate
+  - deploy
+
+.build-base:
+  stage: validate
+  tags: [prod]
+  variables:
+    # 迴避 compose bake 完成後偶發 hang 不退出的已知問題（worker/CLAUDE.md）
+    COMPOSE_BAKE: "false"
+    # docker driver 的 default builder：無 tarball 搬運（docker-container driver
+    # 每次 build 都要把 11GB worker image 打包傳回 daemon，cache hit 也逃不掉）
+    BUILDX_BUILDER: "default"
+  timeout: 1h
+  # 同分支又有新 push 時自動取消過時的驗證（部署 job 不可中斷，不繼承此設定）
+  interruptible: true
+
+frontend-build:
+  extends: .build-base
+  script:
+    - docker compose build frontend # npm ci + oxlint 環境外，tsc -b + vite build 都在這步
+  rules:
+    - changes:
+        - frontend/**/*
+
+backend-build:
+  extends: .build-base
+  script:
+    - docker compose build backend
+  rules:
+    - changes:
+        - backend/**/*
+
+worker-build:
+  extends: .build-base
+  script:
+    - docker compose build worker-gpu # gpu/cpu 共用 kvgh-worker image，只建一次
+  rules:
+    - changes:
+        - worker/**/*
+        - backend/app/**/* # worker/Dockerfile 有 COPY backend/app（共用 models）
+        - algorithm/requirements.txt
+        - .dockerignore
+
+deploy-prod:
+  stage: deploy # validate 全綠才會進到此 stage（= 通過 CI 才部署）
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "prod"'
+  tags: [prod]
+  resource_group: prod-deploy # 部署互斥：同時多次促版會排隊，不並行
+  environment:
+    name: production # GitLab Operate→Environments 有部署歷史；對舊部署 re-deploy 即回滾
+    url: http://localhost:2000
+  timeout: 1h
+  interruptible: false
+  script:
+    # DEPLOY_DIR 預設 /data/kvgh-prod、TARGET_SHA 自動取 $CI_COMMIT_SHA
+    - bash scripts/deploy_prod.sh
+
+# ---- 未來擴充佔位：UAT 環境就緒前（無 uat runner、未設 UAT_ENABLED）永不執行 ----
+deploy-uat:
+  stage: deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "uat" && $UAT_ENABLED == "true"'
+  tags: [uat]
+  resource_group: uat-deploy
+  environment:
+    name: uat
+  timeout: 1h
+  script:
+    - DEPLOY_DIR="${UAT_DEPLOY_DIR:-/data/kvgh-uat}" bash scripts/deploy_prod.sh

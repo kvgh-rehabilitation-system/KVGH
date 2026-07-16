@@ -8,8 +8,9 @@ Celery worker ×2（gpu/cpu 佇列），把 `algorithm/` 的遺留腳本包成 p
 - image 需 apt 裝 **`python3.12-tk`**（AlphaPose coco_wholebody 會 import tkinter）
 - `humanpose_api.py` 以 **CWD 相對路徑**寫 `fig/`、`vid/`、`output_video/` 等目錄且**沒有 makedirs**（cv2.VideoWriter 對缺目錄靜默失敗 → 比對影片直接消失）；還會讀 `ppt/alpha.png` 等素材。`pipeline/compare.py` 已在 job 目錄預建全部目錄 + symlink `algorithm/assets/ppt/`——改 compare.py 時別把這段弄掉
 - `worker/db.py` 必須 `import app.db.base` 載入全部 models，否則 `relationship('RehabPlan')` 字串解析失敗
-- 主機磁碟常態緊繃（219G 用 9 成）：worker image 11GB，每次 rebuild 舊層變 dangling；`docker image prune -f` + `docker buildx prune -f` 是必要維護
-- compose build 偶爾 bake 完成後 hang 住不退出——images 都 tag 好即可 kill 掉改 `docker compose up -d`
+- 主機磁碟常態緊繃（219G 用 9 成）：worker image 11GB，每次真重建舊層變 dangling；日常清理用 `docker image prune -f`。**`docker buildx prune` 別隨手跑**——會清掉 default builder 的 build cache，下次 rebuild 從 2 秒退化回 30–60 分鐘，磁碟真的見底才用
+- 全域 buildx builder 必須是 `default`（docker driver）：2026-04 曾被切到 docker-container driver 的 `ci-builder`，即使全 cache hit 也要搬 11GB tarball（無改動 rebuild 12 分鐘）；2026-07 已切回並在 `.env` 設 `COMPOSE_BAKE=false`，CI 腳本也自帶 `BUILDX_BUILDER=default`
+- compose build 偶爾 bake 完成後 hang 住不退出——`.env` 已設 `COMPOSE_BAKE=false` 迴避；若仍遇到，images 都 tag 好即可 kill 掉改 `docker compose up -d`
 - 迭代小改：`algorithm/` 是 bind mount 免重建；worker 程式碼用 `docker cp` + `docker restart` 熱修，收尾再乾淨 rebuild
 
 ## 產物契約（`pipeline/compare.py` 的 _collect 邊界）
@@ -21,7 +22,7 @@ Celery worker ×2（gpu/cpu 佇列），把 `algorithm/` 的遺留腳本包成 p
 
 ## ⚠️ 影片合成寫死值（改了要同步 backend）
 
-`humanpose_api.py`：輸出影片 30fps 寫死；每 TALMA 步驟寫 `max(Δ導師, Δ病患)` 幀（先到者凍結）；`output.mp4` 每步驟後加 60 停留幀、`output_plain.mp4` 沒有。**動到這段 → 同步改 `backend/app/services/analysis_data_service.py`（OUTPUT_FPS / HOLD_FRAMES / 段表邏輯）並將 VERSION +1。**
+`humanpose_api.py`：輸出影片 30fps 寫死；每 TALMA 步驟寫 `max(Δ導師, Δ病患)` 幀（先到者凍結）；`output.mp4` 每步驟後加 60 停留幀、`output_plain.mp4` 沒有；合成涵蓋全部步驟（2026-07 前寫死只做前 11 步，舊影片需重新分析才有 12+ 步）。**動到這段 → 同步改 `backend/app/services/analysis_data_service.py`（OUTPUT_FPS / HOLD_FRAMES / 段表邏輯）並將 VERSION +1。**
 
 ## 3D .npy 格式
 

@@ -53,6 +53,8 @@ services:
   # FastAPI 後端：程式碼打進 image（無 bind mount），小改用 docker cp 熱修
   backend:
     build: ./backend
+    # 固定 image 名（同 compose v2 預設），CI 部署腳本靠此名稱打 SHA tag
+    image: kvgh-backend
     container_name: kvgh-backend
     ports:
       # 發布到主機：遠端開發（如 Mac 上的 vite dev）直連此後端
@@ -63,8 +65,10 @@ services:
       CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-kvgh}:${RABBITMQ_PASS:-change-me-mq}@rabbitmq:5672//
       MEDIA_ROOT: /data/media
     volumes:
-      # 影片與演算法產物永久存放於專案目錄 media/（除非使用者刪除）
-      - ./media:/data/media
+      # 影片與演算法產物永久存放於 media/（除非使用者刪除）。
+      # MEDIA_DIR 可由 .env 覆寫成絕對路徑——部署 checkout（如 /data/kvgh-prod）
+      # 跑 compose 時指回既有的 /data/KVGH/media，資料不搬家
+      - ${MEDIA_DIR:-./media}:/data/media
     # 等 DB 與 broker 都通過 healthcheck 才啟動（entrypoint 內另有等待重試當雙保險）
     depends_on:
       postgres:
@@ -76,6 +80,7 @@ services:
   # nginx 靜態站 + /api 反代到 backend（前端唯一對外入口）
   frontend:
     build: ./frontend
+    image: kvgh-frontend
     container_name: kvgh-frontend
     ports:
       # port 2000 為使用者指定的對外入口，勿改（見根目錄 CLAUDE.md）
@@ -103,6 +108,10 @@ services:
     build:
       context: .
       dockerfile: worker/Dockerfile
+    # gpu/cpu 兩個 worker 共用同一顆 image（同 Dockerfile 同 context），只在這裡 build 一次；
+    # worker-cpu 不設 build，直接引用此 image。首次改用共用名前先跑
+    # `docker compose build worker-gpu`（或 `docker tag kvgh-worker-gpu kvgh-worker`）
+    image: kvgh-worker
     container_name: kvgh-worker-gpu
     # autoscale=<上限>,1：無任務時常駐 1 個 process，佇列有任務自動擴增；
     # 上限由 GPU VRAM 決定（2080 = 2），防止超收導致 OOM
@@ -120,7 +129,7 @@ services:
       GPU_MIN_FREE_VRAM_MB: ${GPU_MIN_FREE_VRAM_MB:-3000}
       COMPARISON_TIMEOUT_SECONDS: ${COMPARISON_TIMEOUT_SECONDS:-1800}
     volumes:
-      - ./media:/data/media
+      - ${MEDIA_DIR:-./media}:/data/media
       # git 追蹤的演算法腳本（get_2D_3D_script / humanpose_api / make_vid_json_api）
       - ./algorithm:/algorithm
       # 演算法引擎工作目錄（程式碼 git 追蹤、權重與已編譯 .so 為 gitignore；不打進 image）
@@ -142,9 +151,8 @@ services:
     restart: unless-stopped
 
   worker-cpu:
-    build:
-      context: .
-      dockerfile: worker/Dockerfile
+    # 共用 worker-gpu build 出的 kvgh-worker image（見上方註解），自己不 build
+    image: kvgh-worker
     container_name: kvgh-worker-cpu
     # 轉檔 / humanpose 比對（CPU-bound）/ 標註存檔，不佔 GPU 名額
     command: >
@@ -154,7 +162,7 @@ services:
       --loglevel=INFO
     environment: *worker-env
     volumes:
-      - ./media:/data/media
+      - ${MEDIA_DIR:-./media}:/data/media
       - ./algorithm:/algorithm
       - ${ENGINE_DIR:-./algorithm/2D_and_3D_project}:/engine/2D_and_3D_project
     depends_on:

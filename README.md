@@ -18,6 +18,8 @@ docker compose up -d --build
   Docker + nvidia-container-toolkit，不需要在專案資料夾外做任何事**
 - `.env` 可省略（compose 全有預設值）；正式環境才 `cp .env.example .env` 改密碼
 
+> 📘 所有 Docker 操作（build/熱修/seed/除錯/磁碟維護/疑難排解）完整參考：[DOCKER.md](DOCKER.md)
+
 ## 快速啟動（Docker）
 
 ```bash
@@ -62,6 +64,44 @@ GPU 併發受 `GPU_MAX_CONCURRENCY` 與 VRAM 守門雙層保護，詳見 [worker
 
 種子資料涵蓋：全新病患、逾期未回診、多次看診、進行中/待評估/已結案計畫、
 計畫版本調整、影片分析分數趨勢、護理師審核佇列與醫生回報處理等情境。
+
+## CI/CD（GitLab，實驗室自架）
+
+Pipeline 定義在根目錄 [.gitlab-ci.yml](.gitlab-ci.yml)，部署邏輯在
+[scripts/deploy_prod.sh](scripts/deploy_prod.sh)（可本機 `DRY_RUN=1` 測試）。
+
+### 升版流程
+
+```
+feature branch ──MR──> main（CI 驗證綠）──促版──> prod（CI 重驗 → 自動部署）
+                                          git push origin main:prod
+```
+
+- **選擇性 rebuild**：只 build 有改到的服務。改前端只建 frontend；改
+  `backend/app` 連帶建 worker（其 image 內含 backend models，但 pip layer
+  有 cache，秒級）；**改 `algorithm/*.py` 完全不 rebuild**（bind mount），
+  只 restart 兩個 worker
+- **回滾**：GitLab → Operate → Environments → production → 對舊部署按
+  re-deploy（layer cache 使其秒級完成）
+
+### 首次接上 GitLab 的設定（之後階段）
+
+1. 實驗室 GitLab 建 project、push 本 repo（**GitHub repo 需保留**：
+   `scripts/download_weights.sh` 的權重來源是 GitHub Release `weights-v1`）
+2. Protected branches：`main`（需 MR + pipeline 綠才可合併）、`prod`
+   （僅 Maintainer 可 push）
+3. 本機安裝並註冊 gitlab-runner：shell executor、tag `prod`、勾
+   「protected branches only」；`gitlab-runner` 使用者加入 `docker` group
+4. 初始化部署 checkout：`git clone <gitlab-url> /data/kvgh-prod`，其
+   `.env` 設 `MEDIA_DIR=/data/KVGH/media`、
+   `ENGINE_DIR=/data/KVGH/algorithm/2D_and_3D_project`（資料與權重不搬家）
+   及正式密碼；一次性遷移：開發目錄 `docker compose down` 後改由
+   `/data/kvgh-prod` `up -d`
+5. worker 改共用 image 名 `kvgh-worker` 後，首次 build 前先跑一次
+   `docker tag kvgh-worker-gpu kvgh-worker`（或 `docker compose build worker-gpu`），
+   否則 worker-cpu 找不到 image；下次 `docker compose up -d` 讓容器切換到
+   共用 image 後，`docker rmi kvgh-worker-gpu kvgh-worker-cpu` 可回收舊名
+   image 佔用的磁碟（本機約 11GB）
 
 ## 本機開發
 

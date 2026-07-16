@@ -1,6 +1,6 @@
 # KVGH 高榮智慧復健系統系統
 
-高雄榮總復健科原型：病患上傳復健動作影片 → 演算法與導師示範影片比對評分 → 護理師審核回饋 → 醫生調整計畫。三角色（doctor / nurse / patient）。
+高雄榮總復健科原型：病患上傳復健動作影片 → 演算法與導師示範影片比對評分 → 護理師審核回饋 → 醫生調整計畫。四角色（admin / doctor / nurse / patient）。
 
 ## 系統地圖
 
@@ -17,7 +17,8 @@
 - 新機器：`git clone https://github.com/kvgh-rehabilitation-system/KVGH.git` → `docker compose up -d --build` 即用（權重自動下載，無需資料夾外操作）
 - `docker compose up -d --build` → 前端 http://localhost:2000（**port 2000 是使用者指定，勿改**）
 - 服務：frontend(nginx) / backend(uvicorn:8000) / postgres / rabbitmq / worker-gpu / worker-cpu / weights-init（一次性，權重齊全秒過；workers 依賴其成功完成）
-- 帳號：doctor01-03、nurse01-03、patient01-20，密碼一律 `1234`
+- 帳號：admin01、doctor01-03、nurse01-03、patient01-20，密碼一律 `1234`
+- admin 端（`/api/admin/*`、前端 `/admin`）：帳號 CRUD/密碼重設/停用啟用、系統總覽、分析任務監控（重新分析複用 `nurse_service.reanalyze_submission`）。**刪除是軟刪除優先**：帳號被 FK 引用（visits/plans/submissions 等，全無 cascade）時「刪除」自動降級為停用（`users.is_active=false`，登入與所有 API 皆擋），僅無關聯帳號可真刪；禁止改 role、禁止停用/刪除 admin 或自己
 - 種子 `backend/app/seed.py` **預設只建帳號**；`python -m app.seed --demo` 才建假臨床資料（TODAY 相對日期，重跑永遠有「今日」資料）。seed 會把 id 序列跳到 submissions≥1000、teacher_videos≥100，避開磁碟殘留的舊 media 產物
 - backend 程式碼**打進 image、無 bind mount**：小改用 `docker cp backend/app/... kvgh-backend:/app/app/...` + `docker restart kvgh-backend` 熱修，收尾再乾淨 rebuild
 
@@ -41,7 +42,7 @@ media/
 輸出影片與病患原片**不是同一條時間軸**：
 
 - 病患原片 ≈60fps；`output.mp4` / `output_plain.mp4` 皆為 **30fps 寫死**
-- 合成邏輯：每個 TALMA 步驟寫 `max(Δ導師幀, Δ病患幀)` 幀（先到者凍結）；`output.mp4` 每步驟後**再加 60 幀停留**，`output_plain.mp4` 沒有
+- 合成邏輯：每個 TALMA 步驟寫 `max(Δ導師幀, Δ病患幀)` 幀（先到者凍結）；`output.mp4` 每步驟後**再加 60 幀停留**，`output_plain.mp4` 沒有；合成涵蓋**全部**步驟（2026-07 前寫死只做前 11 步，該時期的舊影片需重新分析）
 - 映射數學集中在 `backend/app/services/analysis_data_service.py`（常數 `OUTPUT_FPS=30`、`HOLD_FRAMES=60`），前端只用後端預算好的 `t_plain` / `t_full` / `t_patient` / `t_mentor`
 - **若 `algorithm/humanpose_api.py` 的影片合成邏輯改動，必須同步改該 service 並將 `VERSION` +1**（dashboard.json 快取會自動失效重算）
 

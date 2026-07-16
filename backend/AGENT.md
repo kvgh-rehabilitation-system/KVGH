@@ -4,7 +4,9 @@ FastAPI + SQLAlchemy 2.0 + PostgreSQL（`DATABASE_URL` 注入；本機 fallback 
 
 ## 分層
 
-`app/{core,db,models,schemas,services,api}`：router 只做參數綁定與權限依賴（`require_nurse` 等），邏輯在 services，序列化統一走 `services/common.py` 的 `*_to_out`。
+`app/{core,db,models,schemas,services,api}`：router 只做參數綁定與權限依賴（`require_admin/doctor/nurse/patient`），邏輯在 services，序列化統一走 `services/common.py` 的 `*_to_out`。
+
+停用帳號（`users.is_active=false`）在 `deps.py` 的 `get_current_user` **與** `get_user_flexible` 都回 403（media 串流也擋），login 端點另擋。無 Alembic，`users.is_active` 這類新欄位登記在 `db/ensure_schema.py` 的 `_COLUMNS`。
 
 ## 媒體串流
 
