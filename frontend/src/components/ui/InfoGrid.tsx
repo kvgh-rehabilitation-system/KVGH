@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { staggerContainer, staggerItem } from './PageTransition'
+import { staggerContainer, staggerItem } from './motionVariants'
 
 export interface InfoGridItem {
   icon: LucideIcon

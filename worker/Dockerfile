@@ -6,10 +6,15 @@
 # 主機上編譯好的 cpython-312 .so（AlphaPose nms 等），必須能直接載入。
 FROM ubuntu:24.04
 
+# PIP_DISABLE_PIP_VERSION_CHECK：不印 pip 升版 notice（venv 內 root 警告本就不出現）
 ENV DEBIAN_FRONTEND=noninteractive \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# 先移除最小化 image 的 dpkg path-exclude（man page 等）：留著會讓 update-alternatives
+# 對不存在的 man page 連發 warning（xz/g++ 裝機時共 11 行），弄髒 CI 冷建 log
+RUN rm -f /etc/dpkg/dpkg.cfg.d/excludes \
+    && apt-get update && apt-get install -y --no-install-recommends \
         python3.12 python3.12-venv python3.12-dev python3-pip \
         build-essential \
         ffmpeg \

@@ -14,7 +14,8 @@ import {
 import { getOverview } from '../../../api/admin'
 import { Loading } from '../../../components/ui/Loading'
 import { PageHeader } from '../../../components/ui/PageHeader'
-import { PageTransition, staggerContainer } from '../../../components/ui/PageTransition'
+import { PageTransition } from '../../../components/ui/PageTransition'
+import { staggerContainer } from '../../../components/ui/motionVariants'
 import { SummaryCard } from '../../../components/ui/SummaryCard'
 import type { AdminOverview } from '../../../types'
 

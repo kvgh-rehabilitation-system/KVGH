@@ -34,7 +34,7 @@ import {
 } from '../../../components/ui/select'
 import type { TeacherVideo, TeacherVideoFolder } from '../../../types'
 import { ConfirmDialog } from '../components/library/ConfirmDialog'
-import { PROCESSING_STATUSES } from '../components/library/ExtractionPill'
+import { PROCESSING_STATUSES } from '../components/library/extractionStatus'
 import { LibraryVideoCard } from '../components/library/LibraryVideoCard'
 import { ManageFoldersDialog } from '../components/library/ManageFoldersDialog'
 import { PreviewVideoDialog } from '../components/library/PreviewVideoDialog'

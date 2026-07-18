@@ -23,9 +23,9 @@ function mix(a: number[], b: number[], t: number): string {
 /**
  * 偏差度數 → 連續熱區色（≤15° 綠→琥珀，>15° 琥珀→紅，≥25° 飽和純紅）。
  * 用兩段插值而非單段，讓門檻 15° 恰好落在琥珀色，視覺上與文案「明顯偏差」對齊。
- * export 供其他偏差視覺化元件共用同一套配色。
+ * 其他偏差視覺化元件要共用這套配色時，再連同色錨點一起拆到獨立模組。
  */
-export function heatColor(deg: number): string {
+function heatColor(deg: number): string {
   if (deg <= THRESHOLD) return mix(GREEN, AMBER, Math.max(0, deg / THRESHOLD))
   return mix(AMBER, RED, Math.min(1, (deg - THRESHOLD) / (SATURATE - THRESHOLD)))
 }

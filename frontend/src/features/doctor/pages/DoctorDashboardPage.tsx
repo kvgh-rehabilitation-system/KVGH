@@ -23,10 +23,8 @@ import {
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { FilterChips } from '../../../components/ui/FilterChips'
 import { Loading } from '../../../components/ui/Loading'
-import {
-  PageTransition,
-  staggerContainer,
-} from '../../../components/ui/PageTransition'
+import { PageTransition } from '../../../components/ui/PageTransition'
+import { staggerContainer } from '../../../components/ui/motionVariants'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { SummaryCard } from '../../../components/ui/SummaryCard'
 import { Textarea } from '../../../components/ui/textarea'
