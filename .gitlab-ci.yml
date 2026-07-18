@@ -59,8 +59,8 @@ python-lint:
         - worker/**/*
         - ruff.toml
   script:
-    - docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/io" -w /io "$RUFF_IMAGE" check backend --no-cache
-    - docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/io" -w /io "$RUFF_IMAGE" format --check backend --no-cache
+    - docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/io" -w /io "$RUFF_IMAGE" check backend worker --no-cache
+    - docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/io" -w /io "$RUFF_IMAGE" format --check backend worker --no-cache
 
 .build-base:
   stage: validate
@@ -167,6 +167,30 @@ e2e-login-smoke:
       - frontend/e2e/playwright-report
       - frontend/e2e/test-results
     expire_in: 1 week
+
+worker-contract-test:
+  stage: test
+  tags: [kvgh_prod]
+  interruptible: true
+  timeout: 30m
+  variables:
+    COMPOSE_BAKE: "false"
+    BUILDX_BUILDER: "default"
+  rules:
+    - changes:
+        - worker/**/*
+        - backend/app/**/* # task_queue 契約兩端
+        - algorithm/requirements.txt
+        - ci/**/*
+  script:
+    # validate stage 已 build 過 → 全 cache hit 秒過；不起 stack、不佔 resource_group
+    - docker compose build worker-gpu
+    # 掛 ./algorithm：annotate.py 在 import 期載入 make_vid_json_api（bind mount 慣例同正式 stack）
+    - docker run --rm
+        -v "$PWD/algorithm:/algorithm"
+        -v "$PWD/worker/tests:/app/worker/tests:ro"
+        -e PYTHONDONTWRITEBYTECODE=1
+        kvgh-worker python /app/worker/tests/check_task_contract.py
 
 deploy-prod:
   stage: deploy # validate 全綠才會進到此 stage（= 通過 CI 才部署）
