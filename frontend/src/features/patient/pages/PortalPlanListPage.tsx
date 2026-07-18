@@ -27,7 +27,7 @@ export function PortalPlanListPage() {
   if (!plans) return <Loading />
 
   return (
-    <PageTransition>
+    <PageTransition testId="patient-plans">
       <PageHeader title="我的復健計畫" subtitle="醫療團隊為您安排的復健計畫" />
       {plans.length === 0 ? (
         <EmptyState message="尚無復健計畫" />

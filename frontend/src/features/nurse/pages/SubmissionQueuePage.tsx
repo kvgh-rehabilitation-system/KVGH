@@ -61,7 +61,7 @@ export function SubmissionQueuePage() {
   usePollingReload(reload, (data?.summary.analyzing_count ?? 0) > 0)
 
   return (
-    <PageTransition>
+    <PageTransition testId="nurse-submissions">
       <PageHeader title="影片審核" subtitle="檢視演算法分析結果，快速完成居家復健影片審核" />
 
       {data && (
@@ -209,6 +209,7 @@ export function SubmissionQueuePage() {
                         <span className="text-xs text-bark-300">分析中</span>
                       ) : (
                         <Link
+                          data-testid="review-link"
                           to={`/nurse/submissions/${sub.id}`}
                           className={
                             sub.status === 'PENDING_REVIEW'

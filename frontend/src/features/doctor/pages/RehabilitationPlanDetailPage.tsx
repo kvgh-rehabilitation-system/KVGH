@@ -87,7 +87,7 @@ export function RehabilitationPlanDetailPage({ role = 'doctor' }: Props) {
   }
 
   return (
-    <PageTransition>
+    <PageTransition testId="plan-detail">
       <button
         onClick={() => navigate(-1)}
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-bark-400 transition-colors hover:text-clay-600"
@@ -120,7 +120,7 @@ export function RehabilitationPlanDetailPage({ role = 'doctor' }: Props) {
           </div>
           {isActive && role === 'doctor' && (
             <div className="flex gap-2">
-              <Link to={`/doctor/rehabilitation-plans/${plan.id}/adjust`} className="btn-secondary">
+              <Link data-testid="plan-adjust" to={`/doctor/rehabilitation-plans/${plan.id}/adjust`} className="btn-secondary">
                 <PencilLine size={15} /> 調整計畫
               </Link>
               <button onClick={() => setConfirmClose(true)} className="btn-secondary text-rust hover:border-rust/40 hover:text-rust">

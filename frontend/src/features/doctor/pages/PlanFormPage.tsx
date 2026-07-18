@@ -160,7 +160,7 @@ export function PlanFormPage({ mode }: Props) {
   }
 
   return (
-    <PageTransition>
+    <PageTransition testId="plan-form">
       <Link
         to={backTo}
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-bark-400 transition-colors hover:text-clay-600"
@@ -185,6 +185,7 @@ export function PlanFormPage({ mode }: Props) {
                 本次調整摘要 <span className="text-rust">*</span>
               </label>
               <textarea
+                data-testid="plan-change-summary"
                 className="input min-h-[64px] resize-y"
                 placeholder="例如：核心訓練由每週 3 次調整為每週 2 次"
                 value={changeSummary}
@@ -318,6 +319,7 @@ export function PlanFormPage({ mode }: Props) {
                     onChange={(e) => updateItem(i, 'name', e.target.value)}
                   />
                   <input
+                    data-testid="item-frequency"
                     className="input"
                     placeholder="頻率（例如：每週 3 次）"
                     value={item.frequency ?? ''}
@@ -387,7 +389,7 @@ export function PlanFormPage({ mode }: Props) {
           <Link to={backTo} className="btn-secondary">
             取消
           </Link>
-          <button className="btn-primary" disabled={submitting}>
+          <button data-testid="plan-save" className="btn-primary" disabled={submitting}>
             {submitting ? '儲存中…' : mode === 'create' ? '建立計畫' : '儲存調整（產生新版本）'}
           </button>
         </div>
