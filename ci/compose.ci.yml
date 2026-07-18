@@ -29,7 +29,8 @@ services:
       - kvgh-ci-media:/data/media
     # base 無 healthcheck(dev 靠 entrypoint 重試);CI 需要 up --wait 能等到 API 可用
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8000/api/health', timeout=3)"]
+      # 用 127.0.0.1 不用 localhost:服務只聽 IPv4,localhost 可能先解析到 ::1 被拒連(flaky)
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
       interval: 5s
       timeout: 5s
       retries: 24
@@ -41,7 +42,8 @@ services:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost/"]
+      # 同上:nginx listen 80 只綁 0.0.0.0,busybox wget 解析 localhost 到 ::1 必失敗
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
       interval: 5s
       timeout: 5s
       retries: 12
