@@ -27,5 +27,7 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  // 測試檔由 tsconfig.test.json 檢查（需要 node types，不讓 node 全域滲進 app 型別環境）
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
 }

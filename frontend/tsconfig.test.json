@@ -1,0 +1,11 @@
+{
+  // 測試檔專用型別檢查（npm test 的第一步）：沿用 app 設定，只多 node types
+  // 供 vitest 測試 import node:fs 等內建模組（golden 檔讀取）。
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.test.tsbuildinfo",
+    "types": ["vite/client", "node"]
+  },
+  "include": ["src"],
+  "exclude": []
+}
