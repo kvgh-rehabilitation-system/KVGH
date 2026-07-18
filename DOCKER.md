@@ -132,12 +132,20 @@ DRY_RUN=1 DEPLOY_DIR=/data/KVGH OLD_SHA=HEAD~1 TARGET_SHA=HEAD bash scripts/depl
 
 # 真實部署（僅供部署 checkout /data/kvgh-rehabilitation-system 使用；CI pipeline 會自動呼叫）
 # ⚠️ 不要在開發目錄真跑：腳本會 git checkout -f 到目標 commit，把工作目錄切走
-bash scripts/deploy_prod.sh   # 需 CI_COMMIT_SHA 或 TARGET_SHA
+bash scripts/deploy_prod.sh   # 需 CI_COMMIT_SHA 或 TARGET_SHA；非 CI 手動跑會自動接 verify_deploy.sh
+
+# 部署後驗證（CI 的 verify stage 跑這支；可單獨對任一 stack 驗證）
+DEPLOY_DIR=/data/KVGH bash scripts/verify_deploy.sh
 ```
 
-### 本機重現 CI 的 lint / test job（與 pipeline 同一條指令）
+### 本機重現 CI 的 validate / lint / test job（與 pipeline 同一條指令）
 
 ```bash
+# validate（組態快篩：compose 檔可解析、腳本語法正確）
+docker compose -f docker-compose.yml config -q
+docker compose -p kvgh-ci -f docker-compose.yml -f ci/compose.ci.yml config -q
+bash -n scripts/*.sh
+
 # lint（版本 pin 與 .gitlab-ci.yml 對齊：oxlint 同 frontend/package.json、ruff 同 RUFF_IMAGE）
 docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD/frontend:/app" -w /app node:24-alpine npx -y oxlint@1.71.0
 docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/io" -w /io ghcr.io/astral-sh/ruff:0.15.22 check backend worker --no-cache

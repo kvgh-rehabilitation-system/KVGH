@@ -1,14 +1,18 @@
 # KVGH GitLab CI/CD（實驗室自架 GitLab）
 #
+# 統一流程（八階段，各階段單一職責；每個 job log 開頭都會印出驗證目的）：
+#   validate → lint → build → unit-test → integration-test → e2e-test → deploy → verify
+#
 # 分支模型：
-#   main = 整合分支：push / MR 只跑 validate（docker build 即驗證：前端含 tsc、
-#          worker 含依賴安裝），同時在本機 runner 預熱 layer cache
-#   prod = 部署分支：validate 全綠後 deploy-prod 自動部署（本機 = PROD）
+#   main = 整合分支：push / MR 跑 validate→lint→build→三層測試（不部署），
+#          同時在本機 runner 預熱 layer cache
+#   prod = 部署分支：前面全綠後 deploy-prod 自動部署（本機 = PROD），
+#          verify 階段對部署後的真實環境跑煙霧測試
 #          促版：git push origin main:prod（fast-forward）
 #   uat  = 未來擴充佔位：需另建 uat runner 並設 CI variable UAT_ENABLED=true
 #
-# 選擇性 rebuild 兩層機制：
-#   1) validate 層：rules:changes —— 沒改到的服務連 build job 都不會出現
+# 選擇性觸發兩層機制：
+#   1) build/test 層：rules:changes —— 沒改到的部分連 job 都不會出現
 #   2) deploy 層：scripts/deploy_prod.sh 用 git diff 已部署SHA..目標SHA 決定
 #      要 build 哪些服務（部署間可能跨多個 commit，不能只看本次 push）
 #
@@ -24,10 +28,36 @@ workflow:
     - if: '$CI_COMMIT_BRANCH == "uat"'
 
 stages:
-  - lint     # 秒級快篩：oxlint / ruff（不起容器 stack）
-  - validate # docker build 即驗證（前端含 tsc）
-  - test     # 大功能契約測試：起隔離 CI stack（kvgh-ci，見 ci/compose.ci.yml）
-  - deploy
+  - validate         # 設定/組態快篩：compose 檔可解析、腳本語法正確（秒級、不起容器）
+  - lint             # 程式碼靜態品質：oxlint / ruff（不啟動系統）
+  - build            # docker build 即建置驗證（前端含 tsc；同時預熱 layer cache）
+  - unit-test        # 單一 image 內部契約：不起 stack、不佔共用資源
+  - integration-test # 起隔離 CI stack（kvgh-ci）：驗 API↔DB 真實互動
+  - e2e-test         # Playwright 全棧：模擬使用者從前端走到後端與資料庫
+  - deploy           # 前面全綠才部署（僅 prod/uat 分支）
+  - verify           # 部署後驗證：對真實環境跑煙霧測試（HTTP/登入/workers）
+
+# ---- validate stage：pre-flight 快篩，擋掉「設定改壞讓後面全掛」 ----
+preflight-validate:
+  stage: validate
+  tags: [kvgh_prod]
+  interruptible: true
+  timeout: 10m
+  script:
+    - |
+      echo "─────────────────────────────────────────────"
+      echo "▶ 階段 validate / job preflight-validate"
+      echo "▶ 驗證目的：組態快篩——compose 設定檔（主檔與 CI override）能否正確"
+      echo "  解析、scripts/*.sh 語法是否正確；不起容器、不 build，秒級完成"
+      echo "▶ 失敗代表：設定檔或腳本本身改壞了，後面所有階段都不必跑"
+      echo "─────────────────────────────────────────────"
+    - echo "── 步驟：docker compose config（dev/prod 主 compose 檔）"
+    - docker compose -f docker-compose.yml config -q
+    - echo "── 步驟：docker compose config（CI 隔離 stack override）"
+    - docker compose -p kvgh-ci -f docker-compose.yml -f ci/compose.ci.yml config -q
+    - echo "── 步驟：bash -n scripts/*.sh（部署/驗證腳本語法）"
+    - bash -n scripts/*.sh
+    - echo "✔ validate 通過：compose 設定與腳本皆可正確解析"
 
 # ---- lint stage：不碰 docker build，純靜態快篩 ----
 frontend-lint:
@@ -39,11 +69,19 @@ frontend-lint:
     - changes:
         - frontend/**/*
   script:
+    - |
+      echo "─────────────────────────────────────────────"
+      echo "▶ 階段 lint / job frontend-lint"
+      echo "▶ 驗證目的：oxlint 靜態掃描 frontend TS/JS——團隊規範與明顯錯誤"
+      echo "  （未使用變數、可疑語法等）；不啟動系統、不驗型別（tsc 在 build 階段）"
+      echo "▶ 失敗代表：程式碼有 lint 錯誤，見下方 oxlint 輸出逐條修正"
+      echo "─────────────────────────────────────────────"
     # oxlint 是獨立二進位，npx 只抓一包免 npm ci；版本 pin 與 frontend/package.json 對齊。
     # --user + HOME=/tmp：避免容器以 root 在 workspace 留檔（shell executor 的 git clean 會炸）
     - docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp
         -v "$PWD/frontend:/app" -w /app node:24-alpine
         npx --yes oxlint@1.71.0
+    - echo "✔ lint 通過：frontend 無 oxlint 錯誤"
 
 python-lint:
   stage: lint
@@ -59,11 +97,22 @@ python-lint:
         - worker/**/*
         - ruff.toml
   script:
+    - |
+      echo "─────────────────────────────────────────────"
+      echo "▶ 階段 lint / job python-lint"
+      echo "▶ 驗證目的：ruff 靜態掃描 backend 與 worker——lint 規則（check）"
+      echo "  與排版一致性（format --check）；不啟動系統"
+      echo "▶ 失敗代表：有 lint 錯誤或未跑 ruff format，見下方輸出"
+      echo "─────────────────────────────────────────────"
+    - echo "── 步驟：ruff check（lint 規則）"
     - docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/io" -w /io "$RUFF_IMAGE" check backend worker --no-cache
+    - echo "── 步驟：ruff format --check（排版一致性，只檢查不改檔）"
     - docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/io" -w /io "$RUFF_IMAGE" format --check backend worker --no-cache
+    - echo "✔ lint 通過：backend/worker 無 ruff 問題"
 
+# ---- build stage：docker build 即建置驗證，同時預熱本機 runner 的 layer cache ----
 .build-base:
-  stage: validate
+  stage: build
   tags: [kvgh_prod]
   variables:
     # 迴避 compose bake 完成後偶發 hang 不退出的已知問題（worker/CLAUDE.md）
@@ -78,7 +127,15 @@ python-lint:
 frontend-build:
   extends: .build-base
   script:
-    - docker compose build frontend # npm ci + oxlint 環境外，tsc -b + vite build 都在這步
+    - |
+      echo "─────────────────────────────────────────────"
+      echo "▶ 階段 build / job frontend-build"
+      echo "▶ 驗證目的：frontend image 可完整建置——npm ci 依賴解析、tsc -b 型別"
+      echo "  檢查、vite build 打包全在 Dockerfile 內執行"
+      echo "▶ 失敗代表：依賴、型別或打包壞了，見下方 build log 定位是哪一步"
+      echo "─────────────────────────────────────────────"
+    - docker compose build frontend # npm ci 之後，tsc -b + vite build 都在這步
+    - echo "✔ build 通過：kvgh-frontend image 建置成功"
   rules:
     - changes:
         - frontend/**/*
@@ -86,7 +143,14 @@ frontend-build:
 backend-build:
   extends: .build-base
   script:
+    - |
+      echo "─────────────────────────────────────────────"
+      echo "▶ 階段 build / job backend-build"
+      echo "▶ 驗證目的：backend image 可完整建置——pip 依賴解析與程式碼打包"
+      echo "▶ 失敗代表：requirements 或 Dockerfile 壞了，見下方 build log"
+      echo "─────────────────────────────────────────────"
     - docker compose build backend
+    - echo "✔ build 通過：kvgh-backend image 建置成功"
   rules:
     - changes:
         - backend/**/*
@@ -94,7 +158,15 @@ backend-build:
 worker-build:
   extends: .build-base
   script:
+    - |
+      echo "─────────────────────────────────────────────"
+      echo "▶ 階段 build / job worker-build"
+      echo "▶ 驗證目的：worker image（gpu/cpu 共用）可完整建置——演算法依賴"
+      echo "  安裝與 backend/app 共用 models 的 COPY 皆成功"
+      echo "▶ 失敗代表：worker 依賴或 Dockerfile 壞了，見下方 build log"
+      echo "─────────────────────────────────────────────"
     - docker compose build worker-gpu # gpu/cpu 共用 kvgh-worker image，只建一次
+    - echo "✔ build 通過：kvgh-worker image 建置成功"
   rules:
     - changes:
         - worker/**/*
@@ -102,74 +174,9 @@ worker-build:
         - algorithm/requirements.txt
         - .dockerignore
 
-# ---- test stage：起隔離 CI stack 跑大功能契約測試 ----
-# 測試策略：只驗穩定契約（登入、頁面存活、HTTP 狀態碼），不驗實作細節——
-# 開發中改功能不需要跟著改測試；測試紅燈 = 大功能真的壞了。
-.ci-stack-base:
-  stage: test
-  tags: [kvgh_prod]
-  interruptible: true
-  timeout: 30m
-  # 同機永遠只有一份 kvgh-ci stack（固定名 + 跨 pipeline 互斥）；
-  # 固定 project 名讓上次被 kill 留下的殘骸在 before_script 的 down 自動清掉
-  resource_group: ci-test-stack
-  variables:
-    COMPOSE_BAKE: "false"
-    BUILDX_BUILDER: "default"
-    CI_COMPOSE: docker compose -p kvgh-ci -f docker-compose.yml -f ci/compose.ci.yml
-  before_script:
-    - $CI_COMPOSE down -v --remove-orphans || true
-  after_script: # script 失敗/超時仍會執行 → 保證測試 stack 不殘留
-    - docker compose -p kvgh-ci -f docker-compose.yml -f ci/compose.ci.yml down -v --remove-orphans || true
-
-backend-api-tests:
-  extends: .ci-stack-base
-  rules:
-    - changes:
-        - backend/**/*
-        - ci/**/*
-        - docker-compose.yml
-  script:
-    # demo seed 必須在 backend 啟動前跑：entrypoint 的帳號 seed 一跑，
-    # 防重複機制（有任何帳號就整批跳過）會讓之後的 --demo 變 no-op。
-    # CI 的 DB 每次都是全新的（down -v 保證），順序：先一次性容器建 demo 資料
-    # → 再起 backend（entrypoint seed 自動跳過）→ 列表端點就有真資料可驗序列化
-    - $CI_COMPOSE build backend
-    - $CI_COMPOSE up -d --wait postgres rabbitmq
-    - $CI_COMPOSE run --rm --entrypoint "python -m app.seed --demo" backend
-    - $CI_COMPOSE up -d --wait backend
-    - $CI_COMPOSE run --rm --build api-tests
-
-e2e-login-smoke:
-  extends: .ci-stack-base
-  rules:
-    # Playwright 是全棧測試：backend 改壞登入/dashboard API 一樣要抓，
-    # 所以 backend 改動也觸發（frontend 未變時 --build 全 cache hit，秒過）
-    - changes:
-        - frontend/**/*
-        - backend/**/*
-        - ci/**/*
-        - docker-compose.yml
-  script:
-    # 明點名四個服務：worker/weights-init 不啟動，不碰 GPU 與權重下載
-    - $CI_COMPOSE up -d --build --wait postgres rabbitmq backend frontend
-    # backend entrypoint 已自動 seed 帳號（登入煙霧夠用，不需 --demo）
-    # Playwright image tag 必須與 frontend/e2e/package.json 的 @playwright/test 同號
-    - docker run --rm --network kvgh-ci_default
-        --user "$(id -u):$(id -g)" -e HOME=/tmp
-        -e PW_BASE_URL=http://frontend
-        -v "$PWD/frontend/e2e:/e2e" -w /e2e
-        mcr.microsoft.com/playwright:v1.61.1-noble
-        sh -c "npm ci && npx playwright test"
-  artifacts:
-    when: always
-    paths:
-      - frontend/e2e/playwright-report
-      - frontend/e2e/test-results
-    expire_in: 1 week
-
+# ---- unit-test stage：單一 image 內部契約，不起 stack ----
 worker-contract-test:
-  stage: test
+  stage: unit-test
   tags: [kvgh_prod]
   interruptible: true
   timeout: 30m
@@ -183,17 +190,119 @@ worker-contract-test:
         - algorithm/requirements.txt
         - ci/**/*
   script:
-    # validate stage 已 build 過 → 全 cache hit 秒過；不起 stack、不佔 resource_group
+    - |
+      echo "─────────────────────────────────────────────"
+      echo "▶ 階段 unit-test / job worker-contract-test"
+      echo "▶ 驗證目的：在 kvgh-worker image 內驗 import worker.tasks 可載入"
+      echo "  （= Celery 設定+全 pipeline 模組），且 backend task_queue 發送的"
+      echo "  任務名稱都有註冊——兩端只以字串耦合，build 期抓不到"
+      echo "▶ 失敗代表：worker 模組壞了或任務名兩端不一致（改名沒同步）"
+      echo "─────────────────────────────────────────────"
+    - echo "── 步驟：確認 worker image 為當前程式碼（build 階段已建過 → 全 cache hit 秒過）"
     - docker compose build worker-gpu
+    - echo "── 步驟：在容器內執行契約測試（不起 stack、不碰 GPU/權重/broker）"
     # 掛 ./algorithm：annotate.py 在 import 期載入 make_vid_json_api（bind mount 慣例同正式 stack）
     - docker run --rm
         -v "$PWD/algorithm:/algorithm"
         -v "$PWD/worker/tests:/app/worker/tests:ro"
         -e PYTHONDONTWRITEBYTECODE=1
         kvgh-worker python /app/worker/tests/check_task_contract.py
+    - echo "✔ unit-test 通過：worker 任務契約一致"
 
+# ---- integration-test / e2e-test stage：起隔離 CI stack 跑大功能契約測試 ----
+# 測試策略：只驗穩定契約（登入、頁面存活、HTTP 狀態碼），不驗實作細節——
+# 開發中改功能不需要跟著改測試；測試紅燈 = 大功能真的壞了。
+.ci-stack-base:
+  stage: integration-test
+  tags: [kvgh_prod]
+  interruptible: true
+  timeout: 30m
+  # 同機永遠只有一份 kvgh-ci stack（固定名 + 跨 pipeline 互斥）；
+  # 固定 project 名讓上次被 kill 留下的殘骸在 before_script 的 down 自動清掉
+  resource_group: ci-test-stack
+  variables:
+    COMPOSE_BAKE: "false"
+    BUILDX_BUILDER: "default"
+    CI_COMPOSE: docker compose -p kvgh-ci -f docker-compose.yml -f ci/compose.ci.yml
+  before_script:
+    - echo "── 前置：清掉可能殘留的 kvgh-ci stack（含 volume），保證測試環境全新"
+    - $CI_COMPOSE down -v --remove-orphans || true
+  after_script: # script 失敗/超時仍會執行 → 保證測試 stack 不殘留
+    - echo "── 收尾：拆除 kvgh-ci stack（含 volume）"
+    - docker compose -p kvgh-ci -f docker-compose.yml -f ci/compose.ci.yml down -v --remove-orphans || true
+
+backend-api-tests:
+  extends: .ci-stack-base
+  rules:
+    - changes:
+        - backend/**/*
+        - ci/**/*
+        - docker-compose.yml
+  script:
+    - |
+      echo "─────────────────────────────────────────────"
+      echo "▶ 階段 integration-test / job backend-api-tests"
+      echo "▶ 驗證目的：起隔離 CI stack（postgres+rabbitmq+backend），以 demo seed"
+      echo "  資料對 /api/* 跑 pytest 契約測試——驗 API↔DB 真實串接與序列化"
+      echo "▶ 失敗代表：後端大功能真的壞了（測試只驗穩定契約，不驗實作細節）"
+      echo "─────────────────────────────────────────────"
+    # demo seed 必須在 backend 啟動前跑：entrypoint 的帳號 seed 一跑，
+    # 防重複機制（有任何帳號就整批跳過）會讓之後的 --demo 變 no-op。
+    # CI 的 DB 每次都是全新的（down -v 保證），順序：先一次性容器建 demo 資料
+    # → 再起 backend（entrypoint seed 自動跳過）→ 列表端點就有真資料可驗序列化
+    - echo "── 步驟：build backend image（build 階段已建過 → 全 cache hit）"
+    - $CI_COMPOSE build backend
+    - echo "── 步驟：啟動 postgres + rabbitmq 並等待 healthy"
+    - $CI_COMPOSE up -d --wait postgres rabbitmq
+    - echo "── 步驟：以一次性容器建 demo seed 資料（須在 backend 啟動前）"
+    - $CI_COMPOSE run --rm --entrypoint "python -m app.seed --demo" backend
+    - echo "── 步驟：啟動 backend 並等待 healthy"
+    - $CI_COMPOSE up -d --wait backend
+    - echo "── 步驟：執行 pytest API 契約測試（backend/tests/api）"
+    - $CI_COMPOSE run --rm --build api-tests
+    - echo "✔ integration-test 通過：API 契約測試全綠"
+
+e2e-login-smoke:
+  extends: .ci-stack-base
+  stage: e2e-test
+  rules:
+    # Playwright 是全棧測試：backend 改壞登入/dashboard API 一樣要抓，
+    # 所以 backend 改動也觸發（frontend 未變時 --build 全 cache hit，秒過）
+    - changes:
+        - frontend/**/*
+        - backend/**/*
+        - ci/**/*
+        - docker-compose.yml
+  script:
+    - |
+      echo "─────────────────────────────────────────────"
+      echo "▶ 階段 e2e-test / job e2e-login-smoke"
+      echo "▶ 驗證目的：Playwright 從瀏覽器操作前端，經 backend 到資料庫走完"
+      echo "  登入等關鍵流程——模擬真實使用者，驗前後端整條路"
+      echo "▶ 失敗代表：使用者實際操作會壞（報告見 artifacts 的 playwright-report）"
+      echo "─────────────────────────────────────────────"
+    - echo "── 步驟：啟動 CI stack 四服務並等待 healthy（不起 worker/weights-init，不碰 GPU 與權重）"
+    - $CI_COMPOSE up -d --build --wait postgres rabbitmq backend frontend
+    # backend entrypoint 已自動 seed 帳號（登入煙霧夠用，不需 --demo）
+    # Playwright image tag 必須與 frontend/e2e/package.json 的 @playwright/test 同號
+    - echo "── 步驟：以 Playwright 容器執行 e2e 測試（打 http://frontend）"
+    - docker run --rm --network kvgh-ci_default
+        --user "$(id -u):$(id -g)" -e HOME=/tmp
+        -e PW_BASE_URL=http://frontend
+        -v "$PWD/frontend/e2e:/e2e" -w /e2e
+        mcr.microsoft.com/playwright:v1.61.1-noble
+        sh -c "npm ci && npx playwright test"
+    - echo "✔ e2e-test 通過：使用者關鍵流程全綠"
+  artifacts:
+    when: always
+    paths:
+      - frontend/e2e/playwright-report
+      - frontend/e2e/test-results
+    expire_in: 1 week
+
+# ---- deploy stage：前面全綠才會進到此階段（= 通過 CI 才部署） ----
 deploy-prod:
-  stage: deploy # validate 全綠才會進到此 stage（= 通過 CI 才部署）
+  stage: deploy
   rules:
     - if: '$CI_COMMIT_BRANCH == "prod"'
   tags: [kvgh_prod]
@@ -204,8 +313,16 @@ deploy-prod:
   timeout: 1h
   interruptible: false
   script:
+    - |
+      echo "─────────────────────────────────────────────"
+      echo "▶ 階段 deploy / job deploy-prod"
+      echo "▶ 目的：把 PROD checkout 更新到本次 commit，git diff 決定選擇性"
+      echo "  rebuild，docker compose up 套用；部署後驗證交由下一階段 verify"
+      echo "▶ 失敗代表：部署中斷，環境可能停在中間狀態——看下方 log 判斷卡在哪步"
+      echo "─────────────────────────────────────────────"
     # DEPLOY_DIR 預設 /data/kvgh-rehabilitation-system、TARGET_SHA 自動取 $CI_COMMIT_SHA
     - bash scripts/deploy_prod.sh
+    - echo "✔ deploy 完成：等 verify 階段對真實環境做部署後驗證"
 
 # ---- 未來擴充佔位：UAT 環境就緒前（無 uat runner、未設 UAT_ENABLED）永不執行 ----
 deploy-uat:
@@ -218,4 +335,51 @@ deploy-uat:
     name: uat
   timeout: 1h
   script:
+    - |
+      echo "─────────────────────────────────────────────"
+      echo "▶ 階段 deploy / job deploy-uat"
+      echo "▶ 目的：同 deploy-prod，但套用到 UAT checkout"
+      echo "─────────────────────────────────────────────"
     - DEPLOY_DIR="${UAT_DEPLOY_DIR:-/data/kvgh-uat}" bash scripts/deploy_prod.sh
+
+# ---- verify stage：對部署後的真實環境跑煙霧測試 ----
+verify-prod:
+  stage: verify
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "prod"'
+  tags: [kvgh_prod]
+  resource_group: prod-deploy # 與部署共用互斥：驗證中不會被下一次部署插隊
+  environment:
+    name: production
+    action: verify # 只驗證、不產生新的 deployment 紀錄
+  timeout: 15m
+  interruptible: false
+  script:
+    - |
+      echo "─────────────────────────────────────────────"
+      echo "▶ 階段 verify / job verify-prod"
+      echo "▶ 驗證目的：對剛部署完的 PROD 真實環境跑煙霧測試——frontend/backend"
+      echo "  HTTP 存活、真實登入+auth/me（DB/seed/JWT 全鏈路）、celery workers ping"
+      echo "▶ 失敗代表：部署上去的版本在真實環境壞了——"
+      echo "  GitLab Operate→Environments 對舊部署 re-deploy 即回滾"
+      echo "─────────────────────────────────────────────"
+    - bash scripts/verify_deploy.sh
+    - echo "✔ verify 通過：PROD 部署後驗證全綠"
+
+verify-uat:
+  stage: verify
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "uat" && $UAT_ENABLED == "true"'
+  tags: [kvgh_uat]
+  resource_group: uat-deploy
+  environment:
+    name: uat
+    action: verify
+  timeout: 15m
+  script:
+    - |
+      echo "─────────────────────────────────────────────"
+      echo "▶ 階段 verify / job verify-uat"
+      echo "▶ 驗證目的：同 verify-prod，但對 UAT 環境"
+      echo "─────────────────────────────────────────────"
+    - DEPLOY_DIR="${UAT_DEPLOY_DIR:-/data/kvgh-uat}" bash scripts/verify_deploy.sh
