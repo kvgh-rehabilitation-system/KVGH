@@ -47,7 +47,5 @@ def enqueue_submission_pipeline(submission_id: int, teacher_video_id: int) -> st
 
 
 def enqueue_annotation(teacher_video_id: int, frames: list[int]) -> str:
-    result = celery_client.send_task(
-        TASK_ANNOTATE, args=(teacher_video_id, frames), queue="cpu"
-    )
+    result = celery_client.send_task(TASK_ANNOTATE, args=(teacher_video_id, frames), queue="cpu")
     return result.id

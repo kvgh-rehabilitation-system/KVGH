@@ -101,7 +101,9 @@ class NurseReport(Base):
     nurse_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     # STATUS_REPORT | ADJUSTMENT_SUGGESTION | ABNORMALITY
     kind: Mapped[str] = mapped_column(String(30), default="STATUS_REPORT")
-    severity: Mapped[str] = mapped_column(String(20), default="NORMAL")  # NORMAL | PRIORITY | URGENT
+    severity: Mapped[str] = mapped_column(
+        String(20), default="NORMAL"
+    )  # NORMAL | PRIORITY | URGENT
     content: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     # PENDING_DOCTOR_REVIEW | REVIEWED

@@ -9,8 +9,8 @@ from datetime import date, datetime
 
 from pydantic import BaseModel
 
-
 # ---- 演算法分析 ----
+
 
 class AnalysisOut(BaseModel):
     """演算法分析結果（四分數 + metrics 直通 + 規則式摘要）。"""
@@ -48,6 +48,7 @@ class CompletionTrendPoint(BaseModel):
 
 # ---- 上傳與審核 ----
 
+
 class SubmissionListItem(BaseModel):
     """審核佇列列表的一列。"""
 
@@ -60,7 +61,9 @@ class SubmissionListItem(BaseModel):
     item_name: str
     submitted_at: datetime
     status: str  # ANALYZING | PENDING_REVIEW | REVIEWED
-    display_status: str  # PENDING|TRANSCODING|EXTRACTING|COMPARING|DONE|FAILED|PENDING_REVIEW|REVIEWED
+    display_status: (
+        str  # PENDING|TRANSCODING|EXTRACTING|COMPARING|DONE|FAILED|PENDING_REVIEW|REVIEWED
+    )
     decision: str | None = None  # APPROVED | NEEDS_ATTENTION
     overall_score: float | None = None
     needs_attention: bool = False  # 分數偏低或連續下滑
@@ -117,6 +120,7 @@ class ReviewSubmit(BaseModel):
 
 
 # ---- 護理師回報醫生 ----
+
 
 class NurseReportCreate(BaseModel):
     """護理師建立回報的表單（可選擇性掛在某筆上傳上）。"""

@@ -17,7 +17,9 @@ class Visit(Base):
     patient_id: Mapped[int] = mapped_column(ForeignKey("patients.id"), index=True)
     doctor_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     visit_date: Mapped[date] = mapped_column(Date, index=True)
-    status: Mapped[str] = mapped_column(String(30), default="COMPLETED")  # WAITING | IN_CONSULTATION | COMPLETED
+    status: Mapped[str] = mapped_column(
+        String(30), default="COMPLETED"
+    )  # WAITING | IN_CONSULTATION | COMPLETED
     visit_type: Mapped[str] = mapped_column(String(20), default="FIRST")  # FIRST | FOLLOW_UP
     chief_complaint: Mapped[str | None] = mapped_column(Text, nullable=True)
     diagnosis: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -112,7 +112,9 @@ def _frame_times(segments: list[dict], patient_frame: int) -> tuple[float, float
     if seg is None:
         last = segments[-1]
         plain_end = last["plain_base"] + _seg_len(last)
-        return plain_end / OUTPUT_FPS, (last["full_base"] + _seg_len(last) + HOLD_FRAMES) / OUTPUT_FPS
+        return plain_end / OUTPUT_FPS, (
+            last["full_base"] + _seg_len(last) + HOLD_FRAMES
+        ) / OUTPUT_FPS
     offset = min(patient_frame - seg["patient_start"], _seg_len(seg) - 1)
     return (
         (seg["plain_base"] + offset) / OUTPUT_FPS,
@@ -142,9 +144,7 @@ def _build_payload(db: Session, sub: VideoSubmission) -> dict:
     segments = _build_segments(steps, mentor_hlt)
 
     # 病患原片 fps 取自 metrics（轉檔時記錄）；缺值時退回輸出 fps 免除以零
-    patient_fps = float(
-        (metrics.get("motion_sequence") or {}).get("fps") or OUTPUT_FPS
-    )
+    patient_fps = float((metrics.get("motion_sequence") or {}).get("fps") or OUTPUT_FPS)
     # 導師影片資訊（可能已被刪，全部容錯為 None）
     mentor_info = None
     mentor_fps = None
@@ -217,9 +217,7 @@ def _build_payload(db: Session, sub: VideoSubmission) -> dict:
                 m_series, p_series = mentor_deg[aid], patient_deg[aid]
                 values = []
                 for frame in frames_used:
-                    m_frame = min(
-                        _mentor_frame_for(segments, frame), len(m_series) - 1
-                    )
+                    m_frame = min(_mentor_frame_for(segments, frame), len(m_series) - 1)
                     values.append(round(abs(m_series[m_frame] - p_series[frame]), 1))
                 joints.append({"joint": joint, "label": label, "values": values})
             joint_series = {"frames": frames_used, "joints": joints}

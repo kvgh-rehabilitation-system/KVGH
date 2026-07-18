@@ -4,7 +4,7 @@
 之後換演算法或加 refresh token 只需改此檔。
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import jwt
 from passlib.context import CryptContext
@@ -36,7 +36,7 @@ def create_access_token(subject: str, role: str) -> str:
         HS256 簽章的 JWT 字串，效期見 settings.JWT_EXPIRE_MINUTES
     """
     # 效期以 UTC 計算（JWT exp 標準要求）；payload 僅放不敏感的識別資訊
-    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_EXPIRE_MINUTES)
+    expire = datetime.now(UTC) + timedelta(minutes=settings.JWT_EXPIRE_MINUTES)
     payload = {"sub": subject, "role": role, "exp": expire}
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 

@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session
 from app.api.deps import require_doctor
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.dashboard import DoctorDashboardOut
 from app.schemas.analysis_data import AnalysisDataOut
+from app.schemas.dashboard import DoctorDashboardOut
 from app.schemas.patient import PatientDetailOut, PatientListItem
 from app.schemas.rehab_plan import (
     NurseOption,
@@ -61,6 +61,7 @@ def patient_visits(
     """病患看診史（已完成，新到舊）。"""
     return doctor_service.list_patient_visits(db, patient_id)
 
+
 @router.get("/submissions/{submission_id}", response_model=SubmissionDetailOut)
 def submission_detail(
     submission_id: int,
@@ -71,9 +72,7 @@ def submission_detail(
     return nurse_service.get_submission_detail(db, submission_id)
 
 
-@router.get(
-    "/submissions/{submission_id}/analysis-data", response_model=AnalysisDataOut
-)
+@router.get("/submissions/{submission_id}/analysis-data", response_model=AnalysisDataOut)
 def submission_analysis_data(
     submission_id: int,
     user: User = Depends(require_doctor),
@@ -81,7 +80,6 @@ def submission_analysis_data(
 ):
     """儀表板明細（動作卡/相似度曲線/關節偏差，與護理師端同一資料）。"""
     return analysis_data_service.get_analysis_data(db, submission_id)
-
 
 
 @router.post("/patients/{patient_id}/visits", status_code=201)
@@ -115,9 +113,7 @@ def list_plans(
 
 
 @router.get("/rehabilitation-plans/{plan_id}", response_model=PlanDetailOut)
-def plan_detail(
-    plan_id: int, user: User = Depends(require_doctor), db: Session = Depends(get_db)
-):
+def plan_detail(plan_id: int, user: User = Depends(require_doctor), db: Session = Depends(get_db)):
     """計畫詳細頁（目前版本 + 歷史版本）。"""
     return doctor_service.get_plan_detail(db, plan_id)
 
@@ -147,9 +143,7 @@ def adjust_plan(
 
 
 @router.post("/rehabilitation-plans/{plan_id}/close")
-def close_plan(
-    plan_id: int, user: User = Depends(require_doctor), db: Session = Depends(get_db)
-):
+def close_plan(plan_id: int, user: User = Depends(require_doctor), db: Session = Depends(get_db)):
     """結束計畫（狀態轉 CLOSED）。"""
     plan = doctor_service.close_plan(db, plan_id)
     return {"id": plan.id, "status": plan.status}

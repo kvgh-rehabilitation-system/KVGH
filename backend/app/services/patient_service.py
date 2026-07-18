@@ -75,9 +75,7 @@ def get_dashboard(db: Session, user: User) -> PatientDashboardOut:
         current_plan_status=active_plan.status if active_plan else None,
         week_completed=week_completed,
         week_prescribed=week_prescribed,
-        week_completion_rate=round(week_completed / week_prescribed, 2)
-        if week_prescribed
-        else 0.0,
+        week_completion_rate=round(week_completed / week_prescribed, 2) if week_prescribed else 0.0,
         last_submission_date=last_submission_date,
         latest_score=latest_score,
         latest_feedback=latest_feedback,
@@ -191,6 +189,7 @@ def _submission_for_patient(sub: VideoSubmission) -> dict:
 
 
 # ---- 影片上傳 ----
+
 
 def create_submission(
     db: Session, user: User, plan_id: int, plan_item_id: int, upload: UploadFile

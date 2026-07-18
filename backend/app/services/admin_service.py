@@ -26,6 +26,7 @@ _IN_PROGRESS_STATUSES = ("TRANSCODING", "EXTRACTING", "COMPARING")
 
 # ---- 帳號管理 ----
 
+
 def _get_user_or_404(db: Session, user_id: int) -> User:
     u = db.get(User, user_id)
     if not u:
@@ -254,7 +255,9 @@ def get_overview(db: Session) -> dict:
         .group_by(User.role)
         .all()
     )
-    users = {role: {"total": total, "active": int(active or 0)} for role, total, active in role_rows}
+    users = {
+        role: {"total": total, "active": int(active or 0)} for role, total, active in role_rows
+    }
 
     # 上傳總數與待審數
     submissions_total = db.query(func.count(VideoSubmission.id)).scalar()
@@ -291,6 +294,7 @@ def get_overview(db: Session) -> dict:
 
 
 # ---- 分析任務監控 ----
+
 
 def list_tasks(
     db: Session,
