@@ -3,9 +3,7 @@
 import os
 from pathlib import Path
 
-CELERY_BROKER_URL = os.environ.get(
-    "CELERY_BROKER_URL", "amqp://kvgh:change-me-mq@localhost:5672//"
-)
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "amqp://kvgh:change-me-mq@localhost:5672//")
 DATABASE_URL = os.environ.get(
     "DATABASE_URL", "postgresql+psycopg://kvgh:change-me-pg@localhost:5432/kvgh"
 )

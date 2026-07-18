@@ -76,8 +76,10 @@ def run_comparison(submission_id: int, teacher_video_id: int) -> dict:
         cmd = [
             sys.executable,
             str(config.ALGORITHM_DIR / "humanpose_api.py"),
-            "--charactor1", t,
-            "--charactor", s,
+            "--charactor1",
+            t,
+            "--charactor",
+            s,
         ]
         proc = subprocess.run(
             cmd,
@@ -116,10 +118,10 @@ def run_comparison(submission_id: int, teacher_video_id: int) -> dict:
 
         with (results / "analysis.json").open(encoding="utf-8") as f:
             return json.load(f)
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired as exc:
         raise ComparisonError(
             f"humanpose 比對逾時（>{config.COMPARISON_TIMEOUT_SECONDS}s）"
-        )
+        ) from exc
     finally:
         # 無論成敗都清工作目錄（fig/ 等中間 PNG 動輒上千張，不留垃圾）
         shutil.rmtree(ws, ignore_errors=True)

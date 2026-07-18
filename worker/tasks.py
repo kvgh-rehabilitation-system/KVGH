@@ -13,8 +13,8 @@ from datetime import datetime
 
 from celery.utils.log import get_task_logger
 
-from worker.celery_app import app
 from worker import config
+from worker.celery_app import app
 from worker.db import AnalysisResult, TeacherVideo, VideoSubmission, session_scope
 from worker.pipeline import annotate, compare, extract, gpu_guard, paths, transcode
 
@@ -78,7 +78,9 @@ def transcode_task(self, kind: str, entity_id: int):
         if kind == "teacher":  # 標註頁的逐幀步進需要 fps/frame_count
             fields.update(fps=round(fps, 3), frame_count=frame_count)
         _update(kind, entity_id, **fields)
-        logger.info("%s #%s 轉檔完成: %s (fps=%.2f, frames=%d)", kind, entity_id, dest, fps, frame_count)
+        logger.info(
+            "%s #%s 轉檔完成: %s (fps=%.2f, frames=%d)", kind, entity_id, dest, fps, frame_count
+        )
         return entity_id
     except transcode.TranscodeError as exc:
         _fail(kind, entity_id, str(exc))
@@ -102,7 +104,7 @@ def extract_pose(self, kind: str, entity_id: int):
             logger.warning("%s #%s %s（%d 秒後重試）", kind, entity_id, exc, VRAM_RETRY_COUNTDOWN)
             raise self.retry(
                 exc=exc, countdown=VRAM_RETRY_COUNTDOWN, max_retries=VRAM_MAX_RETRIES
-            )
+            ) from exc
 
         _set_status(kind, entity_id, "EXTRACTING")
         extract.run_extraction(kind, entity_id)
@@ -115,7 +117,7 @@ def extract_pose(self, kind: str, entity_id: int):
             logger.warning("%s #%s CUDA OOM，%d 秒後重試", kind, entity_id, OOM_RETRY_COUNTDOWN)
             raise self.retry(
                 exc=exc, countdown=OOM_RETRY_COUNTDOWN, max_retries=OOM_MAX_RETRIES
-            )
+            ) from exc
         _fail(kind, entity_id, str(exc), exc.stderr)
         raise
 

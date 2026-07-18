@@ -9,9 +9,7 @@ class InsufficientVram(Exception):
     def __init__(self, free_mb: int, required_mb: int):
         self.free_mb = free_mb
         self.required_mb = required_mb
-        super().__init__(
-            f"GPU 剩餘 VRAM {free_mb}MB < 需求 {required_mb}MB，延後執行"
-        )
+        super().__init__(f"GPU 剩餘 VRAM {free_mb}MB < 需求 {required_mb}MB，延後執行")
 
 
 def free_vram_mb() -> int:
