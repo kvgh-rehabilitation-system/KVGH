@@ -31,32 +31,51 @@ export COMPOSE_BAKE=false
 # 也要把 11GB worker image 打包傳回 daemon，一次 rebuild 白耗 10 分鐘以上
 export BUILDX_BUILDER=default
 
-log() { echo "[deploy] $*"; }
+step() { echo "--- $* ..."; }
 # 實際執行前先印指令；DRY_RUN=1 時只印不跑
 run() {
-  if [[ "$DRY_RUN" == "1" ]]; then log "(dry-run) $*"; else log "+ $*"; "$@"; fi
+  if [[ "$DRY_RUN" == "1" ]]; then echo "(dry-run) $*"; else echo "+ $*"; "$@"; fi
 }
 
-[[ -n "$TARGET_SHA" ]] || { echo "缺 TARGET_SHA（CI 外執行請自行指定）" >&2; exit 1; }
+# 步驟明細 banner；[失敗代表] 在 CI job 的 banner 已說明，此處不重複
+cat <<'EOF'
+=========================================
+Deploy：選擇性 rebuild 並套用部署
+=========================================
+本階段會執行以下內容：
+[1/1] 把部署 checkout 更新到目標 commit 並選擇性套用 (git diff → docker compose)
+執行摘要：
+- 只 rebuild 有改到的服務；algorithm/ 是 bind mount 只 restart 不 rebuild
+[執行方式]
+[1/5] 把部署 checkout 更新到目標 commit（detached，回滾走同一條路）
+[2/5] git diff 已部署SHA..目標SHA，決定哪些服務要 rebuild / restart
+[3/5] 選擇性 rebuild 有改到的 image，並打 SHA tag 供回滾對照
+[4/5] docker compose up 套用（只重建 image 有變的容器）
+[5/5] 磁碟維護——清 dangling layer、修剪舊 SHA tag
+=========================================
+EOF
+
+[[ -n "$TARGET_SHA" ]] || { echo "✗ 缺 TARGET_SHA（CI 外執行請自行指定）" >&2; exit 1; }
 cd "$DEPLOY_DIR"
-[[ -f docker-compose.yml ]] || { echo "$DEPLOY_DIR 不是 KVGH checkout" >&2; exit 1; }
+[[ -f docker-compose.yml ]] || { echo "✗ $DEPLOY_DIR 不是 KVGH checkout" >&2; exit 1; }
 
 OLD_SHA="${OLD_SHA:-$(git rev-parse HEAD)}"
 
 # ---- 1. 取得目標版本（dry-run 不動 working tree） ----
-log "步驟 1/5：把部署 checkout 更新到目標 commit（detached，回滾走同一條路）"
+step "[1/5] 把部署 checkout 更新到目標 commit（detached，回滾走同一條路）"
 if [[ "$DRY_RUN" != "1" ]]; then
   run git fetch origin
   # detached checkout：部署目錄永遠等於某個明確 commit，回滾也走同一條路
   run git -c advice.detachedHead=false checkout -f "$TARGET_SHA"
 fi
-git cat-file -e "${TARGET_SHA}^{commit}" || { echo "本地找不到 commit $TARGET_SHA" >&2; exit 1; }
-git cat-file -e "${OLD_SHA}^{commit}"    || { echo "本地找不到 commit $OLD_SHA" >&2; exit 1; }
+git cat-file -e "${TARGET_SHA}^{commit}" || { echo "✗ 本地找不到 commit $TARGET_SHA" >&2; exit 1; }
+git cat-file -e "${OLD_SHA}^{commit}"    || { echo "✗ 本地找不到 commit $OLD_SHA" >&2; exit 1; }
 
-log "已部署: $(git rev-parse --short "$OLD_SHA")  →  目標: $(git rev-parse --short "$TARGET_SHA")"
+echo "已部署: $(git rev-parse --short "$OLD_SHA")  →  目標: $(git rev-parse --short "$TARGET_SHA")"
+echo "✓ 完成"
 
 # ---- 2. diff → 動作對照 ----
-log "步驟 2/5：git diff 已部署SHA..目標SHA，決定哪些服務要 rebuild / restart"
+step "[2/5] git diff 已部署SHA..目標SHA，決定哪些服務要 rebuild / restart"
 BUILD_FRONTEND=0; BUILD_BACKEND=0; BUILD_WORKER=0; RESTART_WORKERS=0
 while IFS= read -r f; do
   [[ -n "$f" ]] || continue
@@ -77,37 +96,41 @@ SERVICES=()
 (( BUILD_FRONTEND )) && SERVICES+=(frontend)
 (( BUILD_BACKEND ))  && SERVICES+=(backend)
 (( BUILD_WORKER ))   && SERVICES+=(worker-gpu)
+echo "✓ 完成"
 
 # ---- 3. 選擇性 build + SHA tag（回滾對照用） ----
-log "步驟 3/5：選擇性 rebuild 有改到的 image，並打 SHA tag 供回滾對照"
+step "[3/5] 選擇性 rebuild 有改到的 image，並打 SHA tag 供回滾對照"
 if (( ${#SERVICES[@]} )); then
-  log "選擇性 rebuild：${SERVICES[*]}"
+  echo "選擇性 rebuild：${SERVICES[*]}"
   run docker compose build "${SERVICES[@]}"
   SHORT_SHA=$(git rev-parse --short "$TARGET_SHA")
   (( BUILD_FRONTEND )) && run docker tag kvgh-frontend "kvgh-frontend:$SHORT_SHA"
   (( BUILD_BACKEND ))  && run docker tag kvgh-backend "kvgh-backend:$SHORT_SHA"
   (( BUILD_WORKER ))   && run docker tag kvgh-worker "kvgh-worker:$SHORT_SHA"
 else
-  log "無服務需要 rebuild"
+  echo "無服務需要 rebuild"
 fi
+echo "✓ 完成"
 
 # ---- 4. 套用：up 只重建 image 有變的容器；純 algorithm 改動另外 restart ----
-log "步驟 4/5：docker compose up 套用（只重建 image 有變的容器）"
+step "[4/5] docker compose up 套用（只重建 image 有變的容器）"
 run docker compose up -d --remove-orphans
 if (( RESTART_WORKERS )) && (( ! BUILD_WORKER )); then
-  log "algorithm/ 有變（bind mount，免 rebuild）→ restart workers"
+  echo "algorithm/ 有變（bind mount，免 rebuild）→ restart workers"
   # 用 compose restart（跟著當前 project 走），不能寫死容器名——
   # 部署 checkout 可能以 override 改名跑並行 stack（如 kvgh-worker-gpu-prod）
   run docker compose restart worker-gpu worker-cpu
 fi
+echo "✓ 完成"
 
 if [[ "$DRY_RUN" == "1" ]]; then
-  log "(dry-run) 略過磁碟清理與部署後驗證，結束"
+  echo "(dry-run) 略過磁碟清理與部署後驗證，結束"
+  echo "=== Deploy 完成（dry-run）：$(git rev-parse --short "$TARGET_SHA") ==="
   exit 0
 fi
 
 # ---- 5. 磁碟維護：清 dangling layer；每個 image 只留最近 KEEP_SHA_TAGS 個 SHA tag ----
-log "步驟 5/5：磁碟維護——清 dangling layer、修剪舊 SHA tag"
+step "[5/5] 磁碟維護——清 dangling layer、修剪舊 SHA tag"
 run docker image prune -f
 for repo in kvgh-frontend kvgh-backend kvgh-worker; do
   docker images --format '{{.Repository}}:{{.Tag}}' "$repo" \
@@ -115,15 +138,16 @@ for repo in kvgh-frontend kvgh-backend kvgh-worker; do
     | tail -n +$((KEEP_SHA_TAGS + 1)) \
     | xargs -r docker rmi >/dev/null 2>&1 || true
 done
+echo "✓ 完成"
 
-log "部署完成：$(git rev-parse --short "$TARGET_SHA")"
+echo "=== Deploy 完成：$(git rev-parse --short "$TARGET_SHA") ==="
 
 # ---- 部署後驗證交接：CI 交給 verify stage；手動執行則接著跑，行為照舊 ----
 if [[ -n "${GITLAB_CI:-}" ]]; then
-  log "CI 環境：部署後驗證（煙霧測試）交由 pipeline 的 verify stage 執行"
+  echo "CI 環境：部署後驗證（煙霧測試）交由 pipeline 的 verify stage 執行"
 elif [[ -f "$DEPLOY_DIR/scripts/verify_deploy.sh" ]]; then
-  log "非 CI 環境：接著執行部署後驗證 scripts/verify_deploy.sh"
+  echo "非 CI 環境：接著執行部署後驗證 scripts/verify_deploy.sh"
   DEPLOY_DIR="$DEPLOY_DIR" bash "$DEPLOY_DIR/scripts/verify_deploy.sh"
 else
-  log "警告：找不到 $DEPLOY_DIR/scripts/verify_deploy.sh，略過部署後驗證" >&2
+  echo "✗ 警告：找不到 $DEPLOY_DIR/scripts/verify_deploy.sh，略過部署後驗證" >&2
 fi
