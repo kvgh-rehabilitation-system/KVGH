@@ -138,17 +138,30 @@ bash scripts/deploy_prod.sh   # 需 CI_COMMIT_SHA 或 TARGET_SHA；非 CI 手動
 DEPLOY_DIR=/data/KVGH bash scripts/verify_deploy.sh
 ```
 
-### 本機重現 CI 的 validate / lint / test job（與 pipeline 同一條指令）
+### 本機重現 CI 的 check / test job（與 pipeline 同一條指令）
 
 ```bash
-# validate（組態快篩：compose 檔可解析、腳本語法正確）
+# check（組態快篩：compose 檔可解析、腳本語法正確）
 docker compose -f docker-compose.yml config -q
 docker compose -p kvgh-ci -f docker-compose.yml -f ci/compose.ci.yml config -q
 bash -n scripts/*.sh
 
-# lint（版本 pin 與 .gitlab-ci.yml 對齊：oxlint 同 frontend/package.json、ruff 同 RUFF_IMAGE）
+# check（lint；版本 pin 與 .gitlab-ci.yml 對齊：oxlint 同 frontend/package.json、ruff 同 RUFF_IMAGE）
 docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD/frontend:/app" -w /app node:24-alpine npx -y oxlint@1.71.0
 docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/io" -w /io ghcr.io/astral-sh/ruff:0.15.22 check backend worker --no-cache
+
+# 後端 unit 測試（不起 stack；golden 在 ci/contracts）
+docker compose build backend && docker build -t kvgh-backend-unit ci/backend-unit/
+docker run --rm -v "$PWD/backend/tests/unit:/tests:ro" -v "$PWD/ci/contracts:/contracts:ro" kvgh-backend-unit
+
+# 前端 unit + 元件測試（不起 stack；與 compose build 共用 layer cache）
+docker build --target build -t kvgh-frontend-teststage frontend/
+docker run --rm -v "$PWD/ci/contracts:/contracts:ro" kvgh-frontend-teststage npm test
+
+# worker 契約測試（不需 GPU/權重/broker）
+docker compose build worker-gpu
+docker run --rm -v "$PWD/algorithm:/algorithm" -v "$PWD/worker/tests:/app/worker/tests:ro" \
+  kvgh-worker python /app/worker/tests/check_task_contract.py
 
 # API 契約測試（隔離 stack kvgh-ci；demo seed 必須在 backend 啟動前，見 .gitlab-ci.yml 註解）
 C="docker compose -p kvgh-ci -f docker-compose.yml -f ci/compose.ci.yml"
@@ -156,17 +169,19 @@ $C build backend && $C up -d --wait postgres rabbitmq
 $C run --rm --entrypoint "python -m app.seed --demo" backend
 $C up -d --wait backend && $C run --rm --build api-tests
 
-# e2e 登入煙霧（Playwright image 版本必須與 frontend/e2e/package.json 同號）
-$C up -d --build --wait postgres rabbitmq backend frontend
+# worker↔MQ 整合（起 rabbitmq + worker-cpu --no-deps，不碰 GPU/權重；exec 輸出先收變數再 grep 防 EPIPE）
+$C up -d --wait rabbitmq && $C up -d --no-deps worker-cpu
+out=$($C exec -T worker-cpu celery -A worker.celery_app inspect ping --timeout 10) && grep pong <<<"$out"
+reg=$($C exec -T worker-cpu celery -A worker.celery_app inspect registered --timeout 10) && grep worker.tasks <<<"$reg"
+
+# e2e 核心流程（Playwright image 版本必須與 frontend/e2e/package.json 同號；需 demo seed）
+$C build backend frontend && $C up -d --wait postgres rabbitmq
+$C run --rm --entrypoint "python -m app.seed --demo" backend
+$C up -d --wait backend frontend
 docker run --rm --network kvgh-ci_default --user "$(id -u):$(id -g)" -e HOME=/tmp -e PW_BASE_URL=http://frontend \
   -v "$PWD/frontend/e2e:/e2e" -w /e2e mcr.microsoft.com/playwright:v1.61.1-noble sh -c "npm ci && npx playwright test"
 
 $C down -v --remove-orphans     # 收工必拆（CI job 的 after_script 也做同一件事）
-
-# worker 契約測試（不需 GPU/權重/broker）
-docker compose build worker-gpu
-docker run --rm -v "$PWD/algorithm:/algorithm" -v "$PWD/worker/tests:/app/worker/tests:ro" \
-  kvgh-worker python /app/worker/tests/check_task_contract.py
 ```
 
 ## 8. 從零重建（新機器 / 災難恢復）

@@ -29,6 +29,15 @@ React 19 + Vite + TypeScript + Tailwind 3.4 + framer-motion。設計語言：溫
 - `.npy` 解析：`src/utils/npy.ts`（僅支援 `<f4` C-order）
 - H36M 關節索引/邊表/8 關節映射都在 `pose-utils.ts`，別在元件裡重複定義
 
+## 測試（vitest + Testing Library）
+
+- `npm test` = `tsc -p tsconfig.test.json && vitest run`；測試檔 `src/**/*.test.{ts,tsx}` 與源碼同目錄
+- 設定在獨立 `vitest.config.ts`（不共用 vite.config——專案是 vite 8，vitest 用自帶 vite）；**不開 globals**，測試顯式 `import { test, expect } from 'vitest'`，RTL 元件測試須自行 `afterEach(cleanup)`
+- 型別分離：`tsconfig.app.json` 排除測試檔，`tsconfig.test.json`（多 node types）專責測試——node 全域不滲進 app 型別環境
+- golden：`submissionStatus.test.ts` 斷言兩張 label 表 key 覆蓋 `ci/contracts/submission_status.json` 全值域（後端 pytest 驗同一份）；尋找順序 `CONTRACTS_DIR` env → `/contracts`（CI 掛載）→ `../ci/contracts`（本機）
+- CI 跑法：`docker build --target build`（與 compose build 共用 layer cache）→ `docker run -v ci/contracts:/contracts:ro ... npm test`
+- e2e（Playwright，`e2e/` 獨立 npm 專案）：共用 helper 在 `e2e/tests/helpers.ts`（login、console error 收集器＋allowlist）；錨點一律 `data-testid`（頁面級掛在 `PageTransition` 的 `testId`）；審核頁降級/資源 404 屬預期，用 spec 內 allowlist 放行
+
 ## 建置陷阱
 
 - **package-lock.json 必須用容器內 npm 產生**（`docker run --rm -v $PWD:/app -w /app node:24-alpine npm install --package-lock-only`），本機 npm 版本不同會讓 `npm ci` 因 @emnapi/* optional 依賴差異失敗

@@ -1,14 +1,21 @@
 # KVGH GitLab CI/CD（實驗室自架 GitLab）
 #
-# 統一流程（八階段，各階段單一職責；每個 job log 開頭都會印出驗證目的）：
-#   validate → lint → build → unit-test → integration-test → e2e-test → deploy → verify
+# 統一流程（五階段，同性質 job 同組平行跑；每個 job log 開頭都會印出驗證目的）：
+#   check → build → test → deploy → verify
+#
+# 測試金字塔 → job 對照（詳見 README「CI/CD」節）：
+#   Unit/Component：backend-unit-tests、frontend-unit-tests
+#   Integration：backend-api-tests（API↔DB）、worker-integration（Worker↔MQ）
+#   Contract：worker-contract-test、golden 值域雙端測試、test_openapi.py
+#   E2E/Smoke：e2e-core-flows、verify stage 的 verify_deploy.sh
+#   Regression：golden fixture 測試 + 手動 Run pipeline 全量重跑
 #
 # log 統一格式（比照 kvgh-rehabilitation-system/backend-fastapi 的 job log）：
 #   開頭 heredoc banner（==== 框 + 本階段會驗證以下內容 + [失敗代表] + [執行方式]）
 #   → 每步驟前 "--- [N/M] 步驟名 ..." → 成功後 "✓ 通過" → 結尾 "=== XXX 全部通過 ==="
 #
 # 分支模型：
-#   main = 整合分支：push / MR 跑 validate→lint→build→三層測試（不部署），
+#   main = 整合分支：push / MR 跑 check→build→test（不部署），
 #          同時在本機 runner 預熱 layer cache
 #   prod = 部署分支：前面全綠後 deploy-prod 自動部署（本機 = PROD），
 #          verify 階段對部署後的真實環境跑煙霧測試
@@ -32,18 +39,16 @@ workflow:
     - if: '$CI_COMMIT_BRANCH == "uat"'
 
 stages:
-  - validate         # 設定/組態快篩：compose 檔可解析、腳本語法正確（秒級、不起容器）
-  - lint             # 程式碼靜態品質：oxlint / ruff（不啟動系統）
-  - build            # docker build 即建置驗證（前端含 tsc；同時預熱 layer cache）
-  - unit-test        # 單一 image 內部契約：不起 stack、不佔共用資源
-  - integration-test # 起隔離 CI stack（kvgh-ci）：驗 API↔DB 真實互動
-  - e2e-test         # Playwright 全棧：模擬使用者從前端走到後端與資料庫
-  - deploy           # 前面全綠才部署（僅 prod/uat 分支）
-  - verify           # 部署後驗證：對真實環境跑煙霧測試（HTTP/登入/workers）
+  - check  # 組態快篩 + lint：compose 可解析、腳本語法、oxlint/ruff（不起容器、秒級）
+  - build  # docker build 即建置驗證（前端含 tsc；同時預熱 layer cache）
+  - test   # 全部測試同組平行：unit/契約不起 stack；api/worker/e2e 起 kvgh-ci stack
+           # （resource_group: ci-test-stack 讓三個起 stack 的 job 自動互斥排隊）
+  - deploy # 前面全綠才部署（僅 prod/uat 分支）
+  - verify # 部署後驗證：對真實環境跑煙霧測試（HTTP/登入/workers）
 
-# ---- validate stage：pre-flight 快篩，擋掉「設定改壞讓後面全掛」 ----
+# ---- check stage：pre-flight 快篩 + lint，擋掉「設定改壞讓後面全掛」 ----
 preflight-validate:
-  stage: validate
+  stage: check
   tags: [kvgh_prod]
   interruptible: true
   timeout: 10m
@@ -79,9 +84,8 @@ preflight-validate:
     - echo "✓ 通過"
     - echo "=== Preflight 全部通過 ==="
 
-# ---- lint stage：不碰 docker build，純靜態快篩 ----
 frontend-lint:
-  stage: lint
+  stage: check
   tags: [kvgh_prod]
   interruptible: true
   timeout: 15m
@@ -117,7 +121,7 @@ frontend-lint:
     - echo "=== Oxlint 全部通過 ==="
 
 python-lint:
-  stage: lint
+  stage: check
   tags: [kvgh_prod]
   interruptible: true
   timeout: 15m
@@ -252,9 +256,9 @@ worker-build:
         - algorithm/requirements.txt
         - .dockerignore
 
-# ---- unit-test stage：單一 image 內部契約，不起 stack ----
+# ---- test stage（不起 stack 組）：單一 image 內部契約，與起 stack 組完全平行 ----
 worker-contract-test:
-  stage: unit-test
+  stage: test
   tags: [kvgh_prod]
   interruptible: true
   timeout: 30m
@@ -300,11 +304,105 @@ worker-contract-test:
     - echo "✓ 通過"
     - echo "=== Worker 契約 全部通過 ==="
 
-# ---- integration-test / e2e-test stage：起隔離 CI stack 跑大功能契約測試 ----
+backend-unit-tests:
+  stage: test
+  tags: [kvgh_prod]
+  interruptible: true
+  timeout: 30m
+  variables:
+    COMPOSE_BAKE: "false"
+    BUILDX_BUILDER: "default"
+  rules:
+    - changes:
+        - backend/**/*
+        - ci/**/* # ci/contracts golden 或 runner Dockerfile 改動也要重驗
+  script:
+    - |
+      cat <<'EOF'
+      =========================================
+      Pytest：驗證後端 unit 契約
+      =========================================
+      本階段會驗證以下內容：
+      [1/2] 純函式數學與狀態判定 (backend/tests/unit)
+      驗證摘要：
+      - 幀映射（_build_segments/_frame_times 等）手算期望值、display_status 優先序、
+        needs_attention 門檻——不碰 DB、不起 stack
+      [2/2] golden 回歸契約 (ci/contracts + 常數釘住)
+      驗證摘要：
+      - VERSION/OUTPUT_FPS/HOLD_FRAMES 釘住（與 humanpose_api.py 合成邏輯耦合）、
+        display_status 值域對 golden JSON（前端 vitest 驗同一份）
+      [失敗代表]
+      映射數學/狀態邏輯真的改了：若是刻意改動，同步 golden、前端與 VERSION
+      [執行方式]
+      [1/3] docker compose build backend（build 階段已建過 → 全 cache hit）
+      [2/3] build unit 測試 runner（FROM kvgh-backend + pytest，秒級）
+      [3/3] docker run pytest（測試檔與 golden 以 ro 掛載）
+      =========================================
+      EOF
+    - echo "--- [1/3] 確認 backend image 為當前程式碼 ..."
+    - docker compose build backend
+    - echo "✓ 通過"
+    - echo "--- [2/3] build unit 測試 runner ..."
+    - docker build -t kvgh-backend-unit ci/backend-unit/
+    - echo "✓ 通過"
+    - echo "--- [3/3] 執行 pytest unit 測試 ..."
+    - docker run --rm
+        -v "$PWD/backend/tests/unit:/tests:ro"
+        -v "$PWD/ci/contracts:/contracts:ro"
+        kvgh-backend-unit
+    - echo "✓ 通過"
+    - echo "=== 後端 unit 全部通過 ==="
+
+frontend-unit-tests:
+  stage: test
+  tags: [kvgh_prod]
+  interruptible: true
+  timeout: 30m
+  variables:
+    COMPOSE_BAKE: "false"
+    BUILDX_BUILDER: "default"
+  rules:
+    - changes:
+        - frontend/**/*
+        - ci/**/* # ci/contracts golden 改動要重驗前端 label 表
+  script:
+    - |
+      cat <<'EOF'
+      =========================================
+      Vitest：驗證前端 unit 與元件契約
+      =========================================
+      本階段會驗證以下內容：
+      [1/2] utils 純函式 (frontend/src/**/*.test.ts)
+      驗證摘要：
+      - 格式化門檻/roleHome/npy 解析；submissionStatus label 表對 ci/contracts
+        golden（後端 pytest 驗同一份——雙寫契約的另一端）
+      [2/2] 元件契約 (Testing Library + jsdom)
+      驗證摘要：
+      - 登入表單（e2e 錨點 testid 與提交行為）、StatusBadge 渲染
+      [失敗代表]
+      顯示邏輯/狀態值域壞了；golden 紅燈=前後端狀態表沒同步
+      [執行方式]
+      [1/2] docker build --target build（與 compose build 共用 layer cache，免冷 npm ci）
+      [2/2] docker run npm test（= tsc -p tsconfig.test.json && vitest run）
+      =========================================
+      EOF
+    - echo "--- [1/2] build 前端 build stage（含 npm ci，全 cache hit 時秒過）..."
+    - docker build --target build -t kvgh-frontend-teststage frontend/
+    - echo "✓ 通過"
+    - echo "--- [2/2] 執行 vitest（golden 以 ro 掛載）..."
+    - docker run --rm
+        -v "$PWD/ci/contracts:/contracts:ro"
+        kvgh-frontend-teststage npm test
+    - echo "✓ 通過"
+    - echo "=== 前端 unit 全部通過 ==="
+
+# ---- test stage（起 stack 組）：起隔離 CI stack 跑大功能契約測試 ----
 # 測試策略：只驗穩定契約（登入、頁面存活、HTTP 狀態碼），不驗實作細節——
 # 開發中改功能不需要跟著改測試；測試紅燈 = 大功能真的壞了。
+# 三個起 stack 的 job（backend-api-tests / worker-integration / e2e-core-flows）
+# 共用 resource_group：同 stage 平行排程，但實際輪流獨占全新 kvgh-ci stack。
 .ci-stack-base:
-  stage: integration-test
+  stage: test
   tags: [kvgh_prod]
   interruptible: true
   timeout: 30m
@@ -373,11 +471,73 @@ backend-api-tests:
     - echo "✓ 通過"
     - echo "=== Pytest 全部通過 ==="
 
-e2e-login-smoke:
+worker-integration:
   extends: .ci-stack-base
-  stage: e2e-test
   rules:
-    # Playwright 是全棧測試：backend 改壞登入/dashboard API 一樣要抓，
+    - changes:
+        - worker/**/*
+        - backend/app/**/* # worker image COPY backend/app（共用 models）
+        - ci/**/*
+        - docker-compose.yml
+  script:
+    - |
+      cat <<'EOF'
+      =========================================
+      Celery：驗證 Worker↔MQ 整合
+      =========================================
+      本階段會驗證以下內容：
+      [1/2] worker 能對真 broker 起來 (rabbitmq + worker-cpu)
+      驗證摘要：
+      - 起隔離 CI stack 的 rabbitmq，worker-cpu 以 --no-deps 啟動
+        （跳過 weights-init/postgres——不跑任務、不碰 GPU 與權重）
+      [2/2] 任務在 broker 上註冊 (inspect ping / registered)
+      驗證摘要：
+      - ping 回 pong + 四個任務名都註冊——broker URL/佇列設定/模組載入全鏈路
+      [失敗代表]
+      worker 起不來（import 爆炸/broker 連不上）或任務註冊不完整
+      [執行方式]
+      [1/4] build worker image（build 階段已建過 → 全 cache hit）
+      [2/4] 啟動 rabbitmq 並等待 healthy
+      [3/4] 啟動 worker-cpu（--no-deps）並等 celery ping 回 pong
+      [4/4] inspect registered 驗四個任務名
+      =========================================
+      EOF
+    - echo "--- [1/4] 確認 worker image 為當前程式碼 ..."
+    - docker compose build worker-gpu
+    - echo "✓ 通過"
+    - echo "--- [2/4] 啟動 rabbitmq 並等待 healthy ..."
+    - $CI_COMPOSE up -d --wait rabbitmq
+    - echo "✓ 通過"
+    - echo "--- [3/4] 啟動 worker-cpu 並等 celery ping ..."
+    - $CI_COMPOSE up -d --no-deps worker-cpu
+    # 先收完整輸出再 grep：直接 pipe 給 grep -q 會提早關管線，exec 收到 EPIPE
+    # 回 255 被誤判失敗（同 verify_deploy.sh 的已知坑）
+    - |
+      ok=""
+      for _ in $(seq 1 15); do
+        if out=$($CI_COMPOSE exec -T worker-cpu celery -A worker.celery_app inspect ping --timeout 10 2>/dev/null) \
+           && grep -q pong <<<"$out"; then ok=1; break; fi
+        sleep 4
+      done
+      if [ -z "$ok" ]; then
+        echo "✗ celery ping 失敗，worker-cpu log 如下：" >&2
+        $CI_COMPOSE logs worker-cpu | tail -50
+        exit 1
+      fi
+    - echo "✓ 通過"
+    - echo "--- [4/4] inspect registered 驗四個任務名 ..."
+    - |
+      reg=$($CI_COMPOSE exec -T worker-cpu celery -A worker.celery_app inspect registered --timeout 10)
+      for t in worker.tasks.transcode worker.tasks.extract_pose worker.tasks.run_comparison worker.tasks.save_annotation; do
+        if grep -q "$t" <<<"$reg"; then echo "  ✓ $t"; else echo "✗ 任務 $t 未註冊" >&2; exit 1; fi
+      done
+    - echo "✓ 通過"
+    - echo "=== Worker↔MQ 整合 全部通過 ==="
+
+e2e-core-flows:
+  extends: .ci-stack-base
+  rules:
+    # Playwright 是全棧測試：backend 改壞登入/審核/計畫 API 一樣要抓，
     # 所以 backend 改動也觸發（frontend 未變時 --build 全 cache hit，秒過）
     - changes:
         - frontend/**/*
@@ -388,25 +548,44 @@ e2e-login-smoke:
     - |
       cat <<'EOF'
       =========================================
-      Playwright：驗證使用者關鍵流程
+      Playwright：驗證使用者核心流程
       =========================================
       本階段會驗證以下內容：
-      [1/1] 全棧 e2e——登入等關鍵流程 (frontend/e2e)
+      [1/3] 四角色登入 + 主要工作頁巡檢 (login / role-pages spec)
       驗證摘要：
-      - Playwright 從瀏覽器操作前端，經 backend 到資料庫走完整條路——模擬真實使用者
+      - 從瀏覽器經 backend 到資料庫走完整條路，頁面存活且無 console error
+      [2/3] 護理師審核頁降級模式 (nurse-review spec)
+      驗證摘要：
+      - seed 資料磁碟無檔案：analysis-data/pose3d 404 → 示意動畫 + 原始影片並排
+      [3/3] 醫師調整計畫寫入路徑 (doctor-plan spec)
+      驗證摘要：
+      - 改頻率 + 摘要 → 儲存產生新版本 → 導回計畫詳情
       [失敗代表]
       使用者實際操作會壞（報告見 artifacts 的 playwright-report）
       [執行方式]
-      [1/2] 啟動 CI stack 四服務並等待 healthy（不起 worker/weights-init，不碰 GPU 與權重）
-      [2/2] 以 Playwright 容器執行 e2e 測試（打 http://frontend）
+      [1/5] build backend + frontend image（build 階段已建過 → 全 cache hit）
+      [2/5] 啟動 postgres + rabbitmq（不起 worker/weights-init，不碰 GPU 與權重）
+      [3/5] 以一次性容器建 demo seed 資料（須在 backend 啟動前，同 api-tests）
+      [4/5] 啟動 backend + frontend 並等待 healthy
+      [5/5] 以 Playwright 容器執行全部 spec（打 http://frontend）
       =========================================
       EOF
-    - echo "--- [1/2] 啟動 CI stack 四服務並等待 healthy ..."
-    - $CI_COMPOSE up -d --build --wait postgres rabbitmq backend frontend
+    # demo seed 必須在 backend 啟動前跑（原因見 backend-api-tests 的註解）：
+    # 審核頁/計畫調整 spec 需要 demo 的 submissions 與進行中計畫
+    - echo "--- [1/5] build backend + frontend image ..."
+    - $CI_COMPOSE build backend frontend
     - echo "✓ 通過"
-    # backend entrypoint 已自動 seed 帳號（登入煙霧夠用，不需 --demo）
+    - echo "--- [2/5] 啟動 postgres + rabbitmq 並等待 healthy ..."
+    - $CI_COMPOSE up -d --wait postgres rabbitmq
+    - echo "✓ 通過"
+    - echo "--- [3/5] 以一次性容器建 demo seed 資料 ..."
+    - $CI_COMPOSE run --rm --entrypoint "python -m app.seed --demo" backend
+    - echo "✓ 通過"
+    - echo "--- [4/5] 啟動 backend + frontend 並等待 healthy ..."
+    - $CI_COMPOSE up -d --wait backend frontend
+    - echo "✓ 通過"
     # Playwright image tag 必須與 frontend/e2e/package.json 的 @playwright/test 同號
-    - echo "--- [2/2] 以 Playwright 容器執行 e2e 測試 ..."
+    - echo "--- [5/5] 以 Playwright 容器執行 e2e 測試 ..."
     - docker run --rm --network kvgh-ci_default
         --user "$(id -u):$(id -g)" -e HOME=/tmp
         -e NPM_CONFIG_UPDATE_NOTIFIER=false
