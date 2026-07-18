@@ -46,5 +46,20 @@ services:
       timeout: 5s
       retries: 12
 
+  # API 契約測試 runner:profiles 讓 up 不會啟動它,只供
+  # `docker compose ... run --rm --build api-tests` 使用(自動接同 network、等 backend healthy)
+  api-tests:
+    profiles: ["test"]
+    # 相對路徑以 project 目錄(repo 根,即第一個 -f 檔所在)解析,非本檔位置
+    build: ./ci/api-tests
+    image: kvgh-api-tests
+    environment:
+      API_BASE_URL: http://backend:8000
+    volumes:
+      - ./backend/tests/api:/tests:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+
 volumes:
   kvgh-ci-media:
