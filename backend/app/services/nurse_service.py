@@ -176,9 +176,8 @@ def list_my_patients(
             key = search.strip()
             if key not in patient.name and key not in patient.patient_number:
                 continue
-        if plan_status and plan_status != "ALL":
-            if plan is None or plan.status != plan_status:
-                continue
+        if plan_status and plan_status != "ALL" and (plan is None or plan.status != plan_status):
+            continue
         # 顯示計畫的上傳統計：最新有分析的一筆提供分數
         subs = common.plan_submissions(db, plan.id) if plan else []
         analyzed = [s for s in subs if s.analysis]

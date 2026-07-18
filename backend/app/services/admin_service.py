@@ -145,7 +145,7 @@ def create_user(db: Session, data: AdminUserCreate) -> dict:
     except IntegrityError:
         # 唯一約束兜底：兩個 admin 同時建同名帳號時，後到者在此被擋
         db.rollback()
-        raise HTTPException(status_code=409, detail="帳號名稱或病歷號已存在")
+        raise HTTPException(status_code=409, detail="帳號名稱或病歷號已存在") from None
     db.refresh(u)
     return _user_out(db, u)
 

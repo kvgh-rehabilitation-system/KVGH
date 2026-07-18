@@ -316,7 +316,7 @@ def _motion_sequence(score: float, seconds: int = 6, fps: int = 10) -> dict:
     for f in range(total):
         t = f / fps
         row = []
-        for j, joint in enumerate(MOTION_JOINTS):
+        for j, _joint in enumerate(MOTION_JOINTS):
             base = 30 * math.sin(2 * math.pi * (t / 3.0) + j * 0.7)
             row.append(round(base + RNG.uniform(-noise, noise), 1))
         frames.append(row)
@@ -595,7 +595,7 @@ def seed_demo(db: Session, staff: dict[str, User], patients: dict[str, Patient])
         p07,
         p08,
         p09,
-        p10,
+        _p10,  # p10 全新病患（未看診），demo 資料未引用
         p11,
         p12,
         p13,
@@ -1139,7 +1139,7 @@ def seed_demo(db: Session, staff: dict[str, User], patients: dict[str, Patient])
         adjust={
             "days_ago": 3,
             "summary": "加入平衡訓練，股四頭肌訓練由每週 3 次增加至每週 4 次。",
-            "items": KNEE_ITEMS + [BALANCE_ITEM],
+            "items": [*KNEE_ITEMS, BALANCE_ITEM],
         },
     )
     submission_series(

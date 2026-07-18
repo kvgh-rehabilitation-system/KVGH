@@ -64,7 +64,7 @@ def _build_segments(steps: list[int], mentor_hlt: list[int]) -> list[dict]:
     """
     segments = []
     p_prev, m_prev, plain_base = 0, 0, 0
-    for k, (p_k, m_k) in enumerate(zip(steps, mentor_hlt), start=1):
+    for k, (p_k, m_k) in enumerate(zip(steps, mentor_hlt, strict=False), start=1):
         segments.append(
             {
                 "index": k,
@@ -160,7 +160,7 @@ def _build_payload(db: Session, sub: VideoSubmission) -> dict:
 
     # 動作分解卡：跳到「段完成的凍結畫面」（完整版停在停留幀中段，可看到相似度標註）
     actions = []
-    for match, seg in zip(scores["matches"], segments):
+    for match, seg in zip(scores["matches"], segments, strict=False):
         seg_len = _seg_len(seg)
         actions.append(
             {

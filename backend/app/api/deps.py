@@ -33,7 +33,7 @@ def get_current_user(
     try:
         payload = decode_access_token(credentials.credentials)
     except jwt.PyJWTError:
-        raise HTTPException(status_code=401, detail="登入已過期，請重新登入")
+        raise HTTPException(status_code=401, detail="登入已過期，請重新登入") from None
     # 以 token 的 sub（username）回查 DB——帳號可能在 token 簽發後被刪除
     user = db.query(User).filter(User.username == payload.get("sub")).first()
     if not user:
@@ -79,7 +79,7 @@ def get_user_flexible(
     try:
         payload = decode_access_token(raw)
     except jwt.PyJWTError:
-        raise HTTPException(status_code=401, detail="登入已過期，請重新登入")
+        raise HTTPException(status_code=401, detail="登入已過期，請重新登入") from None
     user = db.query(User).filter(User.username == payload.get("sub")).first()
     if not user:
         raise HTTPException(status_code=401, detail="使用者不存在")
