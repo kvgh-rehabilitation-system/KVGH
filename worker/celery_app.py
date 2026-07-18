@@ -13,11 +13,11 @@ app = Celery("kvgh_worker", broker=config.CELERY_BROKER_URL)
 
 app.conf.update(
     task_default_queue="cpu",
-    task_acks_late=True,               # worker 中途死亡時任務重派（任務本身冪等）
-    worker_prefetch_multiplier=1,      # GPU 任務不預抓，讓佇列長度真實反映負載
+    task_acks_late=True,  # worker 中途死亡時任務重派（任務本身冪等）
+    worker_prefetch_multiplier=1,  # GPU 任務不預抓，讓佇列長度真實反映負載
     task_reject_on_worker_lost=True,
     broker_connection_retry_on_startup=True,
-    result_backend=None,               # 狀態直接寫 DB，不需要 result backend
+    result_backend=None,  # 狀態直接寫 DB，不需要 result backend
     task_ignore_result=True,
 )
 

@@ -38,8 +38,6 @@ def ensure_schema(engine: Engine) -> None:
             if column in existing[table]:
                 continue
             # 補上缺少的欄位，並更新快取讓後續判斷一致
-            conn.execute(
-                text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl_type}")
-            )
+            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl_type}"))
             existing[table].add(column)
             logger.info("ensure_schema: added %s.%s %s", table, column, ddl_type)

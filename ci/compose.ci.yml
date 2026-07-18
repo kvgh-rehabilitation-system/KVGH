@@ -1,0 +1,67 @@
+# CI 測試 stack override —— 與同機的 dev(:2000, project kvgh)與 prod(:2222, project
+# kvgh-prod)完全隔離：容器名 -ci 後綴、image 打 :ci tag(不蓋兩邊共用的 :latest)、
+# 不發布任何 host port(測試容器接 kvgh-ci_default network 直打服務名)。
+#
+# 用法(CI job 與本機驗證同一條路):
+#   docker compose -p kvgh-ci -f docker-compose.yml -f ci/compose.ci.yml \
+#     up -d --build --wait postgres rabbitmq backend frontend
+#   ...(跑測試)
+#   docker compose -p kvgh-ci -f docker-compose.yml -f ci/compose.ci.yml down -v --remove-orphans
+#
+# 只點名起 postgres rabbitmq backend frontend:worker/weights-init 不啟動,
+# 不碰 GPU 與 1.5GB 權重。media 改 named volume——down -v 全清,
+# 也避免容器(root)在 CI workspace 留下 root-owned 檔害 git clean 失敗。
+#
+# `!override` 標記(清空 base 的 ports)需 docker compose >= 2.24。
+name: kvgh-ci
+services:
+  postgres:
+    container_name: kvgh-postgres-ci
+    ports: !override []
+  rabbitmq:
+    container_name: kvgh-rabbitmq-ci
+    ports: !override []
+  backend:
+    image: kvgh-backend:ci
+    container_name: kvgh-backend-ci
+    ports: !override []
+    volumes: !override
+      - kvgh-ci-media:/data/media
+    # base 無 healthcheck(dev 靠 entrypoint 重試);CI 需要 up --wait 能等到 API 可用
+    healthcheck:
+      # 用 127.0.0.1 不用 localhost:服務只聽 IPv4,localhost 可能先解析到 ::1 被拒連(flaky)
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+  frontend:
+    image: kvgh-frontend:ci
+    container_name: kvgh-frontend-ci
+    ports: !override []
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      # 同上:nginx listen 80 只綁 0.0.0.0,busybox wget 解析 localhost 到 ::1 必失敗
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  # API 契約測試 runner:profiles 讓 up 不會啟動它,只供
+  # `docker compose ... run --rm --build api-tests` 使用(自動接同 network、等 backend healthy)
+  api-tests:
+    profiles: ["test"]
+    # 相對路徑以 project 目錄(repo 根,即第一個 -f 檔所在)解析,非本檔位置
+    build: ./ci/api-tests
+    image: kvgh-api-tests
+    environment:
+      API_BASE_URL: http://backend:8000
+    volumes:
+      - ./backend/tests/api:/tests:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  kvgh-ci-media:

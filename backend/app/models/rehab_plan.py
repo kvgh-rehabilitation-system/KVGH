@@ -24,16 +24,16 @@ class RehabPlan(Base):
     status: Mapped[str] = mapped_column(String(30), default="ONGOING", index=True)
     start_date: Mapped[date] = mapped_column(Date)
     evaluation_date: Mapped[date | None] = mapped_column(Date, nullable=True)
-    created_from_visit_id: Mapped[int | None] = mapped_column(ForeignKey("visits.id"), nullable=True)
+    created_from_visit_id: Mapped[int | None] = mapped_column(
+        ForeignKey("visits.id"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     # 關聯：doctor/nurse 都指向 users 表，需明示 foreign_keys 消歧
     patient = relationship("Patient", back_populates="plans")
     doctor = relationship("User", foreign_keys=[doctor_id])
     nurse = relationship("User", foreign_keys=[nurse_id])
-    versions = relationship(
-        "PlanVersion", back_populates="plan", order_by="PlanVersion.version"
-    )
+    versions = relationship("PlanVersion", back_populates="plan", order_by="PlanVersion.version")
 
     @property
     def current_version(self) -> "PlanVersion | None":

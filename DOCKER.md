@@ -135,6 +135,32 @@ DRY_RUN=1 DEPLOY_DIR=/data/KVGH OLD_SHA=HEAD~1 TARGET_SHA=HEAD bash scripts/depl
 bash scripts/deploy_prod.sh   # 需 CI_COMMIT_SHA 或 TARGET_SHA
 ```
 
+### 本機重現 CI 的 lint / test job（與 pipeline 同一條指令）
+
+```bash
+# lint（版本 pin 與 .gitlab-ci.yml 對齊：oxlint 同 frontend/package.json、ruff 同 RUFF_IMAGE）
+docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD/frontend:/app" -w /app node:24-alpine npx -y oxlint@1.71.0
+docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/io" -w /io ghcr.io/astral-sh/ruff:0.15.22 check backend worker --no-cache
+
+# API 契約測試（隔離 stack kvgh-ci；demo seed 必須在 backend 啟動前，見 .gitlab-ci.yml 註解）
+C="docker compose -p kvgh-ci -f docker-compose.yml -f ci/compose.ci.yml"
+$C build backend && $C up -d --wait postgres rabbitmq
+$C run --rm --entrypoint "python -m app.seed --demo" backend
+$C up -d --wait backend && $C run --rm --build api-tests
+
+# e2e 登入煙霧（Playwright image 版本必須與 frontend/e2e/package.json 同號）
+$C up -d --build --wait postgres rabbitmq backend frontend
+docker run --rm --network kvgh-ci_default --user "$(id -u):$(id -g)" -e HOME=/tmp -e PW_BASE_URL=http://frontend \
+  -v "$PWD/frontend/e2e:/e2e" -w /e2e mcr.microsoft.com/playwright:v1.61.1-noble sh -c "npm ci && npx playwright test"
+
+$C down -v --remove-orphans     # 收工必拆（CI job 的 after_script 也做同一件事）
+
+# worker 契約測試（不需 GPU/權重/broker）
+docker compose build worker-gpu
+docker run --rm -v "$PWD/algorithm:/algorithm" -v "$PWD/worker/tests:/app/worker/tests:ro" \
+  kvgh-worker python /app/worker/tests/check_task_contract.py
+```
+
 ## 8. 從零重建（新機器 / 災難恢復）
 
 ```bash

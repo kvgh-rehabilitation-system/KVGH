@@ -24,10 +24,9 @@ class ExtractionError(RuntimeError):
 def artifacts_exist(kind: str, entity_id: int) -> bool:
     """npy + 2D 渲染影片都在才算萃取完成（短路重用的判定條件）。"""
     name = paths.entity_name(kind, entity_id)
-    return (
-        (paths.motionbert_dir(kind, entity_id) / f"{name}.npy").is_file()
-        and (paths.alphapose_dir(kind, entity_id) / f"{name}.mp4").is_file()
-    )
+    return (paths.motionbert_dir(kind, entity_id) / f"{name}.npy").is_file() and (
+        paths.alphapose_dir(kind, entity_id) / f"{name}.mp4"
+    ).is_file()
 
 
 def run_extraction(kind: str, entity_id: int) -> None:
@@ -44,9 +43,12 @@ def run_extraction(kind: str, entity_id: int) -> None:
         cmd = [
             sys.executable,
             str(config.ALGORITHM_DIR / "get_2D_3D_script.py"),
-            "--alphapose_script_path", str(config.ALPHAPOSE_SCRIPT),
-            "--motionbert_script_path", str(config.MOTIONBERT_SCRIPT),
-            "--video_path", str(video),
+            "--alphapose_script_path",
+            str(config.ALPHAPOSE_SCRIPT),
+            "--motionbert_script_path",
+            str(config.MOTIONBERT_SCRIPT),
+            "--video_path",
+            str(video),
         ]
         proc = subprocess.run(
             cmd,
@@ -67,10 +69,8 @@ def run_extraction(kind: str, entity_id: int) -> None:
         # 搬完再驗一次：subprocess exit 0 不保證產物齊全（遺留腳本可能吞錯誤）
         if not artifacts_exist(kind, entity_id):
             raise ExtractionError("萃取完成但找不到預期的輸出檔（npy/mp4）")
-    except subprocess.TimeoutExpired:
-        raise ExtractionError(
-            f"2D/3D 萃取逾時（>{config.EXTRACTION_TIMEOUT_SECONDS}s）"
-        )
+    except subprocess.TimeoutExpired as exc:
+        raise ExtractionError(f"2D/3D 萃取逾時（>{config.EXTRACTION_TIMEOUT_SECONDS}s）") from exc
     finally:
         # 無論成敗都清 job 目錄（成功時產物已搬走，剩的都是中間垃圾）
         shutil.rmtree(job_dir, ignore_errors=True)

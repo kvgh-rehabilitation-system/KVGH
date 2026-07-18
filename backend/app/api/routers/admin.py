@@ -26,6 +26,7 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 # ---- 帳號管理 ----
 
+
 @router.get("/users", response_model=list[AdminUserOut])
 def list_users(
     role: str | None = None,
@@ -94,6 +95,7 @@ def delete_user(
 
 # ---- 系統總覽 ----
 
+
 @router.get("/overview", response_model=AdminOverviewOut)
 def overview(_: User = Depends(require_admin), db: Session = Depends(get_db)):
     """系統總覽（帳號統計/分析狀態計數/磁碟用量）。"""
@@ -101,6 +103,7 @@ def overview(_: User = Depends(require_admin), db: Session = Depends(get_db)):
 
 
 # ---- 分析任務監控 ----
+
 
 @router.get("/tasks", response_model=AdminTaskListOut)
 def list_tasks(

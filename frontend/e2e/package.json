@@ -1,0 +1,8 @@
+{
+  "name": "kvgh-e2e",
+  "private": true,
+  "description": "登入煙霧測試(四角色登入→首頁渲染)。獨立 npm 專案,不進 frontend image、不污染主 package-lock。",
+  "devDependencies": {
+    "@playwright/test": "1.61.1"
+  }
+}

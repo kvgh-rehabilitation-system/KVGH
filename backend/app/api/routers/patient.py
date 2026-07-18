@@ -36,9 +36,7 @@ def my_plans(user: User = Depends(require_patient), db: Session = Depends(get_db
 
 
 @router.get("/rehabilitation-plans/{plan_id}")
-def plan_detail(
-    plan_id: int, user: User = Depends(require_patient), db: Session = Depends(get_db)
-):
+def plan_detail(plan_id: int, user: User = Depends(require_patient), db: Session = Depends(get_db)):
     """我的計畫詳細頁（動作清單 + 完成度 + 上傳紀錄）。"""
     return patient_service.get_plan_detail(db, user, plan_id)
 

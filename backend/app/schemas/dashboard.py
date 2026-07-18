@@ -11,8 +11,8 @@ from app.schemas.submission import (
     SubmissionListItem,
 )
 
-
 # ---- 醫生端 ----
+
 
 class DoctorDashboardSummary(BaseModel):
     """醫生首頁頂部統計卡。"""
@@ -58,6 +58,7 @@ class DoctorDashboardOut(BaseModel):
 
 # ---- 護理師端 ----
 
+
 class NurseDashboardSummary(BaseModel):
     """護理師首頁頂部統計卡。"""
 
@@ -88,6 +89,7 @@ class NurseDashboardOut(BaseModel):
 
 
 # ---- 病患端 ----
+
 
 class PatientDashboardOut(BaseModel):
     """病患入口首頁：目前計畫、本週完成度、最新分數/回饋與雙趨勢。"""

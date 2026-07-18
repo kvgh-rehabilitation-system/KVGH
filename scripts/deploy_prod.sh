@@ -114,8 +114,45 @@ smoke() {
   echo "[deploy] 煙霧測試失敗：$name（$url）" >&2
   return 1
 }
+BACKEND_URL="http://localhost:$(env_port BACKEND_PORT 8000)"
 smoke frontend "http://localhost:$(env_port FRONTEND_PORT 2000)/"
-smoke backend  "http://localhost:$(env_port BACKEND_PORT 8000)/docs"
+smoke backend  "$BACKEND_URL/docs"
+smoke health   "$BACKEND_URL/api/health"
+
+# 真實登入 + token 驗證：驗 DB / seed / JWT 全鏈路（不只是 API 活著）
+login_smoke() {
+  local resp token
+  for _ in $(seq 1 10); do
+    resp=$(curl -sf -H 'Content-Type: application/json' \
+      -d '{"username":"admin01","password":"1234"}' \
+      "$BACKEND_URL/api/auth/login" 2>/dev/null) || { sleep 3; continue; }
+    token=$(printf '%s' "$resp" | sed -n 's/.*"access_token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+    if [[ -n "$token" ]] && curl -sf -o /dev/null -H "Authorization: Bearer $token" "$BACKEND_URL/api/auth/me"; then
+      log "煙霧測試 OK：login + auth/me"
+      return 0
+    fi
+    sleep 3
+  done
+  echo "[deploy] 煙霧測試失敗：login + auth/me" >&2
+  return 1
+}
+login_smoke
+
+# Celery workers 存活：inspect ping 經 broker 回收所有 worker 的 pong。
+# compose exec 跟著當前 project 走，自動命中本部署 stack 的容器（含 override 改名）
+celery_smoke() {
+  for _ in $(seq 1 10); do
+    if docker compose exec -T worker-cpu \
+         celery -A worker.celery_app inspect ping --timeout 10 2>/dev/null | grep -q pong; then
+      log "煙霧測試 OK：celery workers"
+      return 0
+    fi
+    sleep 6 # workers 依賴 weights-init 成功，冷啟（首次下載權重）可能較慢
+  done
+  echo "[deploy] 煙霧測試失敗：celery inspect ping" >&2
+  return 1
+}
+celery_smoke
 
 # ---- 6. 磁碟維護：清 dangling layer；每個 image 只留最近 KEEP_SHA_TAGS 個 SHA tag ----
 run docker image prune -f

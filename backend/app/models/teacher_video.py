@@ -41,9 +41,7 @@ class TeacherVideo(Base):
     frame_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # PENDING | TRANSCODING | EXTRACTING | EXTRACTED | FAILED
-    extraction_status: Mapped[str] = mapped_column(
-        String(30), default="PENDING", index=True
-    )
+    extraction_status: Mapped[str] = mapped_column(String(30), default="PENDING", index=True)
     extraction_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # UNANNOTATED | ANNOTATING | ANNOTATED

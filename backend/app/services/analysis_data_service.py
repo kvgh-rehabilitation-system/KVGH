@@ -64,7 +64,7 @@ def _build_segments(steps: list[int], mentor_hlt: list[int]) -> list[dict]:
     """
     segments = []
     p_prev, m_prev, plain_base = 0, 0, 0
-    for k, (p_k, m_k) in enumerate(zip(steps, mentor_hlt), start=1):
+    for k, (p_k, m_k) in enumerate(zip(steps, mentor_hlt, strict=False), start=1):
         segments.append(
             {
                 "index": k,
@@ -112,7 +112,9 @@ def _frame_times(segments: list[dict], patient_frame: int) -> tuple[float, float
     if seg is None:
         last = segments[-1]
         plain_end = last["plain_base"] + _seg_len(last)
-        return plain_end / OUTPUT_FPS, (last["full_base"] + _seg_len(last) + HOLD_FRAMES) / OUTPUT_FPS
+        return plain_end / OUTPUT_FPS, (
+            last["full_base"] + _seg_len(last) + HOLD_FRAMES
+        ) / OUTPUT_FPS
     offset = min(patient_frame - seg["patient_start"], _seg_len(seg) - 1)
     return (
         (seg["plain_base"] + offset) / OUTPUT_FPS,
@@ -142,9 +144,7 @@ def _build_payload(db: Session, sub: VideoSubmission) -> dict:
     segments = _build_segments(steps, mentor_hlt)
 
     # 病患原片 fps 取自 metrics（轉檔時記錄）；缺值時退回輸出 fps 免除以零
-    patient_fps = float(
-        (metrics.get("motion_sequence") or {}).get("fps") or OUTPUT_FPS
-    )
+    patient_fps = float((metrics.get("motion_sequence") or {}).get("fps") or OUTPUT_FPS)
     # 導師影片資訊（可能已被刪，全部容錯為 None）
     mentor_info = None
     mentor_fps = None
@@ -160,7 +160,7 @@ def _build_payload(db: Session, sub: VideoSubmission) -> dict:
 
     # 動作分解卡：跳到「段完成的凍結畫面」（完整版停在停留幀中段，可看到相似度標註）
     actions = []
-    for match, seg in zip(scores["matches"], segments):
+    for match, seg in zip(scores["matches"], segments, strict=False):
         seg_len = _seg_len(seg)
         actions.append(
             {
@@ -217,9 +217,7 @@ def _build_payload(db: Session, sub: VideoSubmission) -> dict:
                 m_series, p_series = mentor_deg[aid], patient_deg[aid]
                 values = []
                 for frame in frames_used:
-                    m_frame = min(
-                        _mentor_frame_for(segments, frame), len(m_series) - 1
-                    )
+                    m_frame = min(_mentor_frame_for(segments, frame), len(m_series) - 1)
                     values.append(round(abs(m_series[m_frame] - p_series[frame]), 1))
                 joints.append({"joint": joint, "label": label, "values": values})
             joint_series = {"frames": frames_used, "joints": joints}

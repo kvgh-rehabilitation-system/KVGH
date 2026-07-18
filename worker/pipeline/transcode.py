@@ -16,9 +16,13 @@ class TranscodeError(RuntimeError):
 def probe(path: Path) -> dict:
     """ffprobe 讀取影片的 streams/format 資訊（JSON）。"""
     cmd = [
-        "ffprobe", "-v", "error",
-        "-print_format", "json",
-        "-show_streams", "-show_format",
+        "ffprobe",
+        "-v",
+        "error",
+        "-print_format",
+        "json",
+        "-show_streams",
+        "-show_format",
         str(path),
     ]
     proc = subprocess.run(cmd, capture_output=True, text=True)
@@ -54,9 +58,7 @@ def transcode_to_mp4(src: Path, dest: Path) -> tuple[float, int]:
     """轉出 faststart mp4，回傳 (fps, frame_count)。"""
     info = probe(src)
     vs = _video_stream(info)
-    audio = next(
-        (s for s in info.get("streams", []) if s.get("codec_type") == "audio"), None
-    )
+    audio = next((s for s in info.get("streams", []) if s.get("codec_type") == "audio"), None)
 
     # 已是 h264（音軌無或 aac）→ 只換容器（-c copy，秒級完成）；否則重編碼
     can_remux = vs.get("codec_name") == "h264" and (
@@ -69,14 +71,25 @@ def transcode_to_mp4(src: Path, dest: Path) -> tuple[float, int]:
     else:
         # yuv420p：避免手機拍的 10-bit/4:2:2 影片在部分瀏覽器無法播放
         codec_args = [
-            "-c:v", "libx264", "-crf", "23", "-preset", "medium",
-            "-pix_fmt", "yuv420p",
-            "-c:a", "aac",
+            "-c:v",
+            "libx264",
+            "-crf",
+            "23",
+            "-preset",
+            "medium",
+            "-pix_fmt",
+            "yuv420p",
+            "-c:a",
+            "aac",
         ]
     cmd = [
-        "ffmpeg", "-y", "-i", str(src),
+        "ffmpeg",
+        "-y",
+        "-i",
+        str(src),
         *codec_args,
-        "-movflags", "+faststart",
+        "-movflags",
+        "+faststart",
         str(dest),
     ]
     proc = subprocess.run(cmd, capture_output=True, text=True)

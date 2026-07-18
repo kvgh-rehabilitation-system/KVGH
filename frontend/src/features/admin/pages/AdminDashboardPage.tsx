@@ -48,7 +48,7 @@ export function AdminDashboardPage() {
   const diskUsedRatio = (disk.disk_total_bytes - disk.disk_free_bytes) / disk.disk_total_bytes
 
   return (
-    <PageTransition>
+    <PageTransition testId="admin-home">
       <PageHeader title="系統總覽" subtitle="帳號、影片分析與儲存空間狀態" />
 
       <p className="mb-3 text-xs font-medium tracking-wide text-bark-400">帳號</p>

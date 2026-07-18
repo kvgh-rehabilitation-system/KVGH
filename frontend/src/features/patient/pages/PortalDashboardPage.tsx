@@ -26,7 +26,7 @@ export function PortalDashboardPage() {
   if (!data) return <Loading />
 
   return (
-    <PageTransition>
+    <PageTransition testId="patient-home">
       <header className="mb-8">
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm text-clay-600">
           {data.patient_number}

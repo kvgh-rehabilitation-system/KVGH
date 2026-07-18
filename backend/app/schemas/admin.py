@@ -5,8 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, model_validator
 
-
 # ---- 帳號管理 ----
+
 
 class PatientProfileIn(BaseModel):
     """建立 patient 角色帳號時的病患基本資料（Patient 列）。"""
@@ -71,6 +71,7 @@ class SetActiveIn(BaseModel):
 
 # ---- 系統總覽 ----
 
+
 class RoleCount(BaseModel):
     """單一角色的帳號統計（總數/啟用中）。"""
 
@@ -97,6 +98,7 @@ class AdminOverviewOut(BaseModel):
 
 
 # ---- 分析任務監控 ----
+
 
 class AdminTaskRow(BaseModel):
     """任務監控列表的一列（一筆 submission 的分析狀態）。"""

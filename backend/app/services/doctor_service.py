@@ -22,7 +22,6 @@ from app.schemas.dashboard import (
     PlanReminderItem,
     TodayPatientItem,
 )
-from app.schemas.submission import DoctorReportReview
 from app.schemas.patient import (
     PatientBasicInfo,
     PatientDetailOut,
@@ -37,6 +36,7 @@ from app.schemas.rehab_plan import (
     PlanListItem,
     PlanListSummary,
 )
+from app.schemas.submission import DoctorReportReview
 from app.schemas.visit import VisitCreate, VisitOut
 from app.services import common
 
@@ -75,9 +75,7 @@ def get_dashboard(db: Session, doctor: User) -> DoctorDashboardOut:
     today_patients = []
     for v in today_visits:
         patient = v.patient
-        previous = [
-            pv for pv in patient.visits if pv.status == "COMPLETED" and pv.id != v.id
-        ]
+        previous = [pv for pv in patient.visits if pv.status == "COMPLETED" and pv.id != v.id]
         last = max(previous, key=lambda x: x.visit_date) if previous else None
         today_patients.append(
             TodayPatientItem(
@@ -122,7 +120,7 @@ def get_dashboard(db: Session, doctor: User) -> DoctorDashboardOut:
                     reason=reason,
                 )
             )
-    plan_reminders.sort(key=lambda r: (r.evaluation_date or date.max))
+    plan_reminders.sort(key=lambda r: r.evaluation_date or date.max)
 
     return DoctorDashboardOut(
         summary=summary,
@@ -142,9 +140,7 @@ def list_patients(
     query = db.query(Patient)
     if search:
         like = f"%{search}%"
-        query = query.filter(
-            (Patient.name.like(like)) | (Patient.patient_number.like(like))
-        )
+        query = query.filter((Patient.name.like(like)) | (Patient.patient_number.like(like)))
     patients = query.order_by(Patient.patient_number).all()
 
     result = []
@@ -203,9 +199,7 @@ def get_patient_detail(db: Session, patient_id: int) -> PatientDetailOut:
             last_visit_date=last_visit.visit_date if last_visit else None,
             visit_count=len(completed_visits),
             active_plan_count=1 if active_plan else 0,
-            last_submission_date=last_submission.submitted_at.date()
-            if last_submission
-            else None,
+            last_submission_date=last_submission.submitted_at.date() if last_submission else None,
         ),
         rehab_status=common.get_rehab_status(patient),
         latest_visit=common.visit_to_out(last_visit) if last_visit else None,
@@ -377,9 +371,7 @@ def create_plan(db: Session, patient_id: int, doctor: User, data: PlanCreate) ->
     db.flush()
 
     # 建 version 1 與初始動作項目（動作主要由護理師後續維護，可為空）
-    version = PlanVersion(
-        plan_id=plan.id, version=1, goals=data.goals, started_at=data.start_date
-    )
+    version = PlanVersion(plan_id=plan.id, version=1, goals=data.goals, started_at=data.start_date)
     db.add(version)
     db.flush()
     for item in data.items:
@@ -421,9 +413,7 @@ def adjust_plan(db: Session, plan_id: int, data: PlanAdjust) -> RehabPlan:
     # 前端顯式帶 teacher_video_id 時以它為準（動作改名不斷綁），
     # 沒帶時 fallback 到前一版同名動作的綁定
     prev_items = current.items if current else []
-    prev_teacher_videos = {
-        i.name: i.teacher_video_id for i in prev_items if i.teacher_video_id
-    }
+    prev_teacher_videos = {i.name: i.teacher_video_id for i in prev_items if i.teacher_video_id}
     prev_video_ids = {i.teacher_video_id for i in prev_items if i.teacher_video_id}
     for item in data.items:
         payload = item.model_dump()
@@ -492,8 +482,7 @@ def get_plan_submissions(db: Session, plan_id: int) -> dict:
     subs = common.plan_submissions(db, plan_id)
     return {
         "submissions": [
-            common.submission_to_list_item(s, subs).model_dump(mode="json")
-            for s in reversed(subs)
+            common.submission_to_list_item(s, subs).model_dump(mode="json") for s in reversed(subs)
         ],
         "score_trend": [p.model_dump(mode="json") for p in common.score_trend(subs)],
         "completion_trend": [

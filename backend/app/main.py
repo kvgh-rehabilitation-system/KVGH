@@ -16,7 +16,7 @@ from app.db.session import engine
 
 def create_app() -> FastAPI:
     # 無 Alembic：create_all 建缺少的表，ensure_schema 再對既有表補新欄位
-    #（兩者皆冪等，import 時即執行，所以 app 一載入 schema 就緒）
+    # （兩者皆冪等，import 時即執行，所以 app 一載入 schema 就緒）
     Base.metadata.create_all(bind=engine)
     ensure_schema(engine)
 

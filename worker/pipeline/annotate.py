@@ -12,7 +12,7 @@ from worker.pipeline import paths
 
 sys.path.insert(0, str(config.ALGORITHM_DIR))
 
-from make_vid_json_api import save_to_json, select_frames  # noqa: E402
+from make_vid_json_api import save_to_json, select_frames
 
 
 class AnnotationError(RuntimeError):
@@ -48,8 +48,7 @@ def write_annotation(teacher_video_id: int, frames: list[int]) -> str:
     # 數量不符 = 有幀號超出影片實際範圍（原工具走不到該幀）
     if len(selected) != len(frames):
         raise AnnotationError(
-            f"標註幀數不符（要求 {len(frames)}、實際 {len(selected)}），"
-            "可能有幀號超出影片範圍"
+            f"標註幀數不符（要求 {len(frames)}、實際 {len(selected)}），可能有幀號超出影片範圍"
         )
 
     output = paths.annotation_json(teacher_video_id)

@@ -7,7 +7,6 @@ DB 只存相對路徑。除 jobs/ 外全部永久保留，僅使用者主動刪�
 瀏覽器 <video> 即可漸進式緩衝與拖曳，不必等整支下載。
 """
 
-import os
 import re
 import shutil
 from pathlib import Path
@@ -40,6 +39,7 @@ def abs_path(rel_path: str) -> Path:
 
 
 # 三類媒體目錄的路徑約定（與 worker/演算法共用的磁碟契約，見根目錄 CLAUDE.md）
+
 
 def teacher_video_dir(teacher_video_id: int) -> Path:
     return media_root() / "teacher_videos" / str(teacher_video_id)

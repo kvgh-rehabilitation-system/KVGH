@@ -32,9 +32,7 @@ def stream_teacher_video(
     return media_service.stream_video(request, tv.video_path)
 
 
-def _get_viewable_submission(
-    db: Session, user: User, submission_id: int
-) -> VideoSubmission:
+def _get_viewable_submission(db: Session, user: User, submission_id: int) -> VideoSubmission:
     """病患影片的觀看權限：醫護全可看，病患只能看自己的。"""
     sub = db.get(VideoSubmission, submission_id)
     if not sub:

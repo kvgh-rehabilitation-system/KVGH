@@ -174,6 +174,7 @@ def plan_to_card(plan: RehabPlan, db: Session | None = None) -> PlanCardOut:
 
 # ---- 上傳與審核 ----
 
+
 def plan_submissions(db: Session, plan_id: int) -> list[VideoSubmission]:
     """某計畫的全部上傳（舊到新——趨勢計算依賴此順序）。"""
     return (
@@ -184,7 +185,9 @@ def plan_submissions(db: Session, plan_id: int) -> list[VideoSubmission]:
     )
 
 
-def submission_needs_attention(sub: VideoSubmission, history: list[VideoSubmission] | None = None) -> bool:
+def submission_needs_attention(
+    sub: VideoSubmission, history: list[VideoSubmission] | None = None
+) -> bool:
     """分數偏低，或與同動作前一次相比明顯下滑（跌超過 8 分）。
 
     Args:
@@ -280,6 +283,7 @@ def report_to_out(report: NurseReport) -> NurseReportOut:
 
 # ---- 趨勢計算 ----
 
+
 def score_trend(submissions: list[VideoSubmission]) -> list[ScoreTrendPoint]:
     """依日期彙整（同日多筆取平均）分析分數趨勢。"""
     # 先把有分析結果的上傳按上傳日分組
@@ -329,9 +333,7 @@ def completion_trend(
         # 每週區間 [週一, 下週一)，數落在區間內的上傳次數
         week_start = this_monday - timedelta(weeks=offset)
         week_end = week_start + timedelta(days=7)
-        completed = sum(
-            1 for s in submissions if week_start <= s.submitted_at.date() < week_end
-        )
+        completed = sum(1 for s in submissions if week_start <= s.submitted_at.date() < week_end)
         points.append(
             CompletionTrendPoint(
                 week_start=week_start,
@@ -362,7 +364,5 @@ def get_selectable_teacher_video(db: Session, teacher_video_id: int) -> TeacherV
     if not tv:
         raise HTTPException(status_code=404, detail="導師影片不存在")
     if tv.extraction_status != "EXTRACTED":
-        raise HTTPException(
-            status_code=400, detail="導師影片尚未完成 2D/3D 萃取，無法選用"
-        )
+        raise HTTPException(status_code=400, detail="導師影片尚未完成 2D/3D 萃取，無法選用")
     return tv

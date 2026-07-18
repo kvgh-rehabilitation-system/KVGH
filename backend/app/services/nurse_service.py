@@ -56,6 +56,7 @@ def _my_submissions_query(db: Session, nurse: User):
 
 # ---- Dashboard ----
 
+
 def get_dashboard(db: Session, nurse: User) -> NurseDashboardOut:
     """護理師首頁：摘要計數 + 待審佇列前 6 筆（最早優先）+ 需注意病患。
 
@@ -67,16 +68,12 @@ def get_dashboard(db: Session, nurse: User) -> NurseDashboardOut:
 
     # 待審核與今日已審的子集合
     pending = [s for s in subs if s.status == "PENDING_REVIEW"]
-    reviewed_today = [
-        s for s in subs if s.reviewed_at and s.reviewed_at.date() == today
-    ]
+    reviewed_today = [s for s in subs if s.reviewed_at and s.reviewed_at.date() == today]
 
     # 需注意病患 + 我的病患數（只算有效中計畫的病患）
     attention_items = _attention_items(db, nurse, subs)
     my_patients = {
-        p.patient_id
-        for p in _my_plans(db, nurse)
-        if p.status in common.ACTIVE_PLAN_STATUSES
+        p.patient_id for p in _my_plans(db, nurse) if p.status in common.ACTIVE_PLAN_STATUSES
     }
 
     # 佇列取最早上傳的前 6 筆（先進先審）
@@ -94,9 +91,7 @@ def get_dashboard(db: Session, nurse: User) -> NurseDashboardOut:
     )
 
 
-def _attention_items(
-    db: Session, nurse: User, subs: list[VideoSubmission]
-) -> list[AttentionItem]:
+def _attention_items(db: Session, nurse: User, subs: list[VideoSubmission]) -> list[AttentionItem]:
     """需注意病患清單：最新分數偏低 / 較前次明顯下滑 / 評估日 3 天內。
 
     以「病患最新一筆有分析的上傳」為判定基準（跨動作直接比較，
@@ -154,6 +149,7 @@ def _attention_items(
 
 # ---- 我的病患 ----
 
+
 def list_my_patients(
     db: Session,
     nurse: User,
@@ -180,9 +176,8 @@ def list_my_patients(
             key = search.strip()
             if key not in patient.name and key not in patient.patient_number:
                 continue
-        if plan_status and plan_status != "ALL":
-            if plan is None or plan.status != plan_status:
-                continue
+        if plan_status and plan_status != "ALL" and (plan is None or plan.status != plan_status):
+            continue
         # 顯示計畫的上傳統計：最新有分析的一筆提供分數
         subs = common.plan_submissions(db, plan.id) if plan else []
         analyzed = [s for s in subs if s.analysis]
@@ -199,9 +194,7 @@ def list_my_patients(
                 "plan_status": plan.status if plan else None,
                 "is_mine": is_mine,
                 "nurse_name": plan.nurse.name if plan and plan.nurse else None,
-                "pending_review_count": sum(
-                    1 for s in subs if s.status == "PENDING_REVIEW"
-                ),
+                "pending_review_count": sum(1 for s in subs if s.status == "PENDING_REVIEW"),
                 "latest_submission_date": subs[-1].submitted_at.date().isoformat()
                 if subs
                 else None,
@@ -253,16 +246,13 @@ def get_patient_detail_for_nurse(db: Session, nurse: User, patient_id: int) -> d
         ).model_dump(mode="json"),
         "rehab_status": common.get_rehab_status(patient),
         "current_plan": current_plan,
-        "plans": [
-            common.plan_to_card(plan, db).model_dump(mode="json") for plan in plans
-        ],
-        "visits": [
-            common.visit_to_out(visit).model_dump(mode="json") for visit in visits
-        ],
+        "plans": [common.plan_to_card(plan, db).model_dump(mode="json") for plan in plans],
+        "visits": [common.visit_to_out(visit).model_dump(mode="json") for visit in visits],
     }
 
 
 # ---- 影片審核 ----
+
 
 def list_submissions(
     db: Session,
@@ -310,8 +300,7 @@ def list_submissions(
             "needs_attention_count": sum(
                 1
                 for s in subs
-                if s.status == "PENDING_REVIEW"
-                and common.submission_needs_attention(s, subs)
+                if s.status == "PENDING_REVIEW" and common.submission_needs_attention(s, subs)
             ),
         },
         "submissions": [
@@ -407,6 +396,7 @@ def review_submission(
 
 # ---- 回報醫生 ----
 
+
 def create_report(db: Session, nurse: User, data: NurseReportCreate) -> NurseReport:
     """護理師建立給醫生的回報（初始狀態 PENDING_DOCTOR_REVIEW）。"""
     # 驗證目標計畫存在、回報類型合法
@@ -440,6 +430,7 @@ def list_reports(db: Session, nurse: User) -> list[NurseReport]:
 
 
 # ---- 動作管理 ----
+
 
 def _get_current_version(db: Session, plan_id: int):
     """取計畫與其目前版本；缺任一即擋（動作維護的共同前置檢查）。"""
@@ -523,6 +514,7 @@ def delete_plan_item(db: Session, plan_id: int, item_id: int) -> dict:
 
 # ---- 導師影片 ----
 
+
 def teacher_video_to_out(tv: TeacherVideo) -> TeacherVideoOut:
     """TeacherVideo ORM → 回應結構（含萃取/標註狀態）。"""
     return TeacherVideoOut(
@@ -555,17 +547,13 @@ def list_teacher_videos(db: Session) -> list[TeacherVideoOut]:
     return [teacher_video_to_out(tv) for tv in videos]
 
 
-def _create_teacher_video(
-    db: Session, nurse: User, upload: UploadFile, name: str
-) -> TeacherVideo:
+def _create_teacher_video(db: Session, nurse: User, upload: UploadFile, name: str) -> TeacherVideo:
     """建立導師影片、存檔並排入 轉檔 → 2D/3D 萃取 pipeline（不綁定動作）。"""
     clean_name = name.strip()
     if not clean_name:
         raise HTTPException(status_code=422, detail="請輸入影片名稱")
 
-    tv = TeacherVideo(
-        uploaded_by=nurse.id, name=clean_name, extraction_status="PENDING"
-    )
+    tv = TeacherVideo(uploaded_by=nurse.id, name=clean_name, extraction_status="PENDING")
     db.add(tv)
     db.flush()  # 先取得 id 才能決定存放目錄 teacher_videos/{id}/（commit 由呼叫端做）
 
@@ -609,9 +597,7 @@ def upload_teacher_video(
 def delete_teacher_video(db: Session, teacher_video_id: int) -> dict:
     """刪除影片庫中的導師影片（連同磁碟上的影片與萃取產物）。"""
     tv = get_teacher_video_or_404(db, teacher_video_id)
-    referenced = (
-        db.query(PlanItem).filter(PlanItem.teacher_video_id == tv.id).count()
-    )
+    referenced = db.query(PlanItem).filter(PlanItem.teacher_video_id == tv.id).count()
     if referenced:
         raise HTTPException(
             status_code=409, detail="此導師影片仍被復健計畫動作引用，請先更換影片再刪除"
@@ -665,6 +651,7 @@ def reextract_teacher_video(db: Session, teacher_video_id: int) -> TeacherVideoO
 
 # ---- 導師影片資料夾 ----
 
+
 def get_folder_or_404(db: Session, folder_id: int) -> TeacherVideoFolder:
     """以 id 取資料夾，不存在回 404。"""
     folder = db.get(TeacherVideoFolder, folder_id)
@@ -704,15 +691,11 @@ def list_teacher_video_folders(db: Session) -> list[TeacherVideoFolderOut]:
         .group_by(TeacherVideo.folder_id)
         .all()
     )
-    folders = (
-        db.query(TeacherVideoFolder).order_by(TeacherVideoFolder.name).all()
-    )
+    folders = db.query(TeacherVideoFolder).order_by(TeacherVideoFolder.name).all()
     return [_folder_to_out(f, counts.get(f.id, 0)) for f in folders]
 
 
-def create_teacher_video_folder(
-    db: Session, data: TeacherVideoFolderIn
-) -> TeacherVideoFolderOut:
+def create_teacher_video_folder(db: Session, data: TeacherVideoFolderIn) -> TeacherVideoFolderOut:
     """建立資料夾（名稱唯一）。"""
     folder = TeacherVideoFolder(name=_clean_folder_name(db, data.name))
     db.add(folder)
@@ -727,9 +710,7 @@ def rename_teacher_video_folder(
     folder = get_folder_or_404(db, folder_id)
     folder.name = _clean_folder_name(db, data.name, exclude_id=folder.id)
     db.commit()
-    count = (
-        db.query(TeacherVideo).filter(TeacherVideo.folder_id == folder.id).count()
-    )
+    count = db.query(TeacherVideo).filter(TeacherVideo.folder_id == folder.id).count()
     return _folder_to_out(folder, count)
 
 
@@ -746,6 +727,7 @@ def delete_teacher_video_folder(db: Session, folder_id: int) -> dict:
 
 # ---- 導師影片標註 ----
 
+
 def get_annotation(db: Session, teacher_video_id: int) -> AnnotationOut:
     """標註頁資料：影片參數 + 現有標註幀（未標註過回空清單）。"""
     tv = get_teacher_video_or_404(db, teacher_video_id)
@@ -758,9 +740,7 @@ def get_annotation(db: Session, teacher_video_id: int) -> AnnotationOut:
     )
 
 
-def submit_annotation(
-    db: Session, teacher_video_id: int, data: AnnotationSubmit
-) -> AnnotationOut:
+def submit_annotation(db: Session, teacher_video_id: int, data: AnnotationSubmit) -> AnnotationOut:
     """送出重點動作幀標註並排入 annotation JSON 產生任務。"""
     tv = get_teacher_video_or_404(db, teacher_video_id)
     # 標註以幀號指涉影片內容，必須等萃取（轉檔後幀數已定）完成才有意義
@@ -783,6 +763,7 @@ def submit_annotation(
 
 
 # ---- 重新分析 ----
+
 
 def reanalyze_submission(db: Session, submission_id: int) -> dict:
     """重新排入分析 pipeline（產物存在時 worker 會短路重用，冪等）。"""

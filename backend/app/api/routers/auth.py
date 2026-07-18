@@ -24,9 +24,7 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=403, detail="帳號已被停用，請聯絡管理員")
     # 簽發 12 小時效期的 JWT（sub=username、role 供前端路由）
     token = create_access_token(user.username, user.role)
-    return LoginResponse(
-        access_token=token, role=user.role, name=user.name, username=user.username
-    )
+    return LoginResponse(access_token=token, role=user.role, name=user.name, username=user.username)
 
 
 @router.get("/me", response_model=MeResponse)

@@ -122,14 +122,14 @@ export function LoginPage() {
                 <label className="label">帳號</label>
                 <div className="relative">
                   <User size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-bark-300" />
-                  <input className="input pl-10" placeholder="doctor01 / nurse01 / patient01" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus />
+                  <input data-testid="login-username" className="input pl-10" placeholder="doctor01 / nurse01 / patient01" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus />
                 </div>
               </div>
               <div>
                 <label className="label">密碼</label>
                 <div className="relative">
                   <Lock size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-bark-300" />
-                  <input className="input pl-10 pr-11" type={showPassword ? 'text' : 'password'} placeholder="請輸入密碼" value={password} onChange={(e) => setPassword(e.target.value)} />
+                  <input data-testid="login-password" className="input pl-10 pr-11" type={showPassword ? 'text' : 'password'} placeholder="請輸入密碼" value={password} onChange={(e) => setPassword(e.target.value)} />
                   <button
                     type="button"
                     className="absolute right-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-bark-300 transition-colors hover:bg-cream hover:text-bark-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay-400"
@@ -147,7 +147,7 @@ export function LoginPage() {
                   {error}
                 </motion.p>
               )}
-              <motion.button whileTap={{ scale: 0.98 }} className="btn-primary w-full justify-center py-3" disabled={submitting || !username || !password}>
+              <motion.button data-testid="login-submit" whileTap={{ scale: 0.98 }} className="btn-primary w-full justify-center py-3" disabled={submitting || !username || !password}>
                 {submitting ? '登入中…' : '登入'}
               </motion.button>
             </form>

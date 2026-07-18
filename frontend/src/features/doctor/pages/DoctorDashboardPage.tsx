@@ -98,7 +98,7 @@ export function DoctorDashboardPage() {
   }
 
   return (
-    <PageTransition>
+    <PageTransition testId="doctor-home">
       <div className="mb-8">
         <motion.h1
           initial={{ opacity: 0, y: 10 }}

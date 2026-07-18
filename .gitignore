@@ -35,3 +35,4 @@ media/
 *.pkl
 *.so
 *.dll
+.ruff_cache/

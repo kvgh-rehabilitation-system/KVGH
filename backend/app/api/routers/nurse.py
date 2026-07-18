@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import require_nurse
 from app.db.session import get_db
 from app.models.user import User
+from app.schemas.analysis_data import AnalysisDataOut
 from app.schemas.dashboard import NurseDashboardOut
 from app.schemas.rehab_plan import PlanDetailOut, PlanItemCreate, PlanItemUpdate
 from app.schemas.submission import (
@@ -18,7 +19,6 @@ from app.schemas.submission import (
     ReviewSubmit,
     SubmissionDetailOut,
 )
-from app.schemas.analysis_data import AnalysisDataOut
 from app.schemas.teacher_video import (
     AnnotationOut,
     AnnotationSubmit,
@@ -61,9 +61,7 @@ def patient_detail(
 
 
 @router.get("/plans/{plan_id}", response_model=PlanDetailOut)
-def plan_detail(
-    plan_id: int, user: User = Depends(require_nurse), db: Session = Depends(get_db)
-):
+def plan_detail(plan_id: int, user: User = Depends(require_nurse), db: Session = Depends(get_db)):
     """計畫詳細（唯讀，與醫生端共用同一 service）。"""
     return doctor_service.get_plan_detail(db, plan_id)
 
@@ -74,8 +72,6 @@ def plan_submissions(
 ):
     """計畫的上傳紀錄與趨勢（唯讀，與醫生端共用同一 service）。"""
     return doctor_service.get_plan_submissions(db, plan_id)
-
-
 
 
 @router.get("/submissions")
@@ -98,9 +94,7 @@ def submission_detail(
     return nurse_service.get_submission_detail(db, submission_id)
 
 
-@router.get(
-    "/submissions/{submission_id}/analysis-data", response_model=AnalysisDataOut
-)
+@router.get("/submissions/{submission_id}/analysis-data", response_model=AnalysisDataOut)
 def submission_analysis_data(
     submission_id: int,
     user: User = Depends(require_nurse),
@@ -140,10 +134,9 @@ def create_report(
 
 # ---- 動作管理 ----
 
+
 @router.get("/plans/{plan_id}/items")
-def plan_items(
-    plan_id: int, user: User = Depends(require_nurse), db: Session = Depends(get_db)
-):
+def plan_items(plan_id: int, user: User = Depends(require_nurse), db: Session = Depends(get_db)):
     """動作管理頁資料（計畫摘要 + 目前版本的動作清單）。"""
     return nurse_service.get_plan_for_items(db, plan_id)
 
@@ -184,10 +177,9 @@ def delete_plan_item(
 
 # ---- 導師影片 ----
 
+
 @router.get("/teacher-videos", response_model=list[TeacherVideoOut])
-def list_teacher_videos(
-    user: User = Depends(require_nurse), db: Session = Depends(get_db)
-):
+def list_teacher_videos(user: User = Depends(require_nurse), db: Session = Depends(get_db)):
     """導師影片庫清單（跨護理師共享，含名稱與上傳者）。"""
     return nurse_service.list_teacher_videos(db)
 
@@ -268,17 +260,14 @@ def delete_teacher_video(
 
 # ---- 導師影片資料夾 ----
 
+
 @router.get("/teacher-video-folders", response_model=list[TeacherVideoFolderOut])
-def list_teacher_video_folders(
-    user: User = Depends(require_nurse), db: Session = Depends(get_db)
-):
+def list_teacher_video_folders(user: User = Depends(require_nurse), db: Session = Depends(get_db)):
     """資料夾清單（依名稱排序，含影片數）。"""
     return nurse_service.list_teacher_video_folders(db)
 
 
-@router.post(
-    "/teacher-video-folders", response_model=TeacherVideoFolderOut, status_code=201
-)
+@router.post("/teacher-video-folders", response_model=TeacherVideoFolderOut, status_code=201)
 def create_teacher_video_folder(
     data: TeacherVideoFolderIn,
     user: User = Depends(require_nurse),
@@ -288,9 +277,7 @@ def create_teacher_video_folder(
     return nurse_service.create_teacher_video_folder(db, data)
 
 
-@router.patch(
-    "/teacher-video-folders/{folder_id}", response_model=TeacherVideoFolderOut
-)
+@router.patch("/teacher-video-folders/{folder_id}", response_model=TeacherVideoFolderOut)
 def rename_teacher_video_folder(
     folder_id: int,
     data: TeacherVideoFolderIn,
@@ -313,9 +300,8 @@ def delete_teacher_video_folder(
 
 # ---- 導師影片標註 ----
 
-@router.get(
-    "/teacher-videos/{teacher_video_id}/annotation", response_model=AnnotationOut
-)
+
+@router.get("/teacher-videos/{teacher_video_id}/annotation", response_model=AnnotationOut)
 def get_annotation(
     teacher_video_id: int,
     user: User = Depends(require_nurse),
@@ -325,9 +311,7 @@ def get_annotation(
     return nurse_service.get_annotation(db, teacher_video_id)
 
 
-@router.put(
-    "/teacher-videos/{teacher_video_id}/annotation", response_model=AnnotationOut
-)
+@router.put("/teacher-videos/{teacher_video_id}/annotation", response_model=AnnotationOut)
 def submit_annotation(
     teacher_video_id: int,
     data: AnnotationSubmit,
@@ -339,6 +323,7 @@ def submit_annotation(
 
 
 # ---- 重新分析 ----
+
 
 @router.post("/submissions/{submission_id}/reanalyze")
 def reanalyze_submission(
