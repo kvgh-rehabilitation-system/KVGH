@@ -96,26 +96,33 @@ feature branch ──MR──> main（CI 驗證綠）──促版──> prod（
                                           git push origin main:prod
 ```
 
-### 驗證層次（lint → build → test → deploy → deploy 煙霧測試）
+### 驗證層次（validate → lint → build → unit-test → integration-test → e2e-test → deploy → verify）
 
-測試策略：**只驗大功能/穩定契約**（登入、角色權限、頁面存活、HTTP 狀態碼、
-task 名稱契約），不驗實作細節——開發中改功能不需要跟著改測試；測試紅燈
-= 大功能真的壞了。
+八階段各司其職，每個 job 的 CI log 開頭都會印出「這一步在驗什麼、失敗代表
+什麼」的說明。測試策略：**只驗大功能/穩定契約**（登入、角色權限、頁面存活、
+HTTP 狀態碼、task 名稱契約），不驗實作細節——開發中改功能不需要跟著改測試；
+測試紅燈 = 大功能真的壞了。
 
-| Job | Stage | 驗什麼 |
+| Stage | Job | 驗什麼 |
 |---|---|---|
-| `frontend-lint` / `python-lint` | lint | oxlint；ruff check+format（backend/worker，algorithm 排除） |
-| `*-build` | validate | docker build 即驗證（前端含 tsc） |
-| `backend-api-tests` | test | 38 項 API 契約：health、四角色登入、越權 403、主要端點 200、媒體 `?token=` |
-| `e2e-login-smoke` | test | Playwright 四角色登入 → 首頁渲染、無 console error（backend 改動也觸發） |
-| `worker-contract-test` | test | worker image 內驗 `import worker.tasks` + backend 發送的 4 個任務名稱都有註冊 |
-| `deploy-prod` 尾段 | deploy | 煙霧測試：frontend、/docs、/api/health、真實登入+auth/me、celery inspect ping |
+| validate | `preflight-validate` | 組態快篩：compose 檔（主檔+CI override）可解析、`scripts/*.sh` 語法（秒級、不起容器） |
+| lint | `frontend-lint` / `python-lint` | oxlint；ruff check+format（backend/worker，algorithm 排除） |
+| build | `*-build` | docker build 即建置驗證（前端含 tsc），同時預熱 layer cache |
+| unit-test | `worker-contract-test` | worker image 內驗 `import worker.tasks` + backend 發送的 4 個任務名稱都有註冊（不起 stack） |
+| integration-test | `backend-api-tests` | 起隔離 CI stack，38 項 API 契約：health、四角色登入、越權 403、主要端點 200、媒體 `?token=` |
+| e2e-test | `e2e-login-smoke` | Playwright 四角色登入 → 首頁渲染、無 console error（backend 改動也觸發） |
+| deploy | `deploy-prod` | 只部署：git diff 選擇性 rebuild + compose up（[scripts/deploy_prod.sh](scripts/deploy_prod.sh)） |
+| verify | `verify-prod` | 部署後對真實環境煙霧測試：frontend、/docs、/api/health、真實登入+auth/me、celery inspect ping（[scripts/verify_deploy.sh](scripts/verify_deploy.sh)） |
 
-test stage 跑在**隔離 CI stack**（project `kvgh-ci`，見
+integration/e2e 測試跑在**隔離 CI stack**（project `kvgh-ci`，見
 [ci/compose.ci.yml](ci/compose.ci.yml)）：容器名 `-ci` 後綴、image `:ci`
 tag、不發布任何 host port，與 dev(:2000)/prod(:2222) 完全互不干擾；
 `resource_group` 保證同機只有一份，job 前後都 `down -v` 清乾淨。
 本機重現各 job 指令見 DOCKER.md 第 7 節。
+
+手動（非 CI）執行 `deploy_prod.sh` 時會自動接著跑 `verify_deploy.sh`，
+行為與拆分前相同；也可單獨驗任一 stack：
+`DEPLOY_DIR=/data/KVGH bash scripts/verify_deploy.sh`。
 
 - **選擇性 rebuild**：只 build 有改到的服務。改前端只建 frontend；改
   `backend/app` 連帶建 worker（其 image 內含 backend models，但 pip layer
