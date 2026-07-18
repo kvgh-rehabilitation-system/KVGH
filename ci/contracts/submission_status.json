@@ -1,0 +1,14 @@
+{
+  "description": "前後端雙寫契約的單一來源：submission 顯示狀態值域。後端 backend/tests/unit/test_contract_golden.py 驗 common.submission_display_status 的輸出值域；前端 frontend/src/utils/submissionStatus.test.ts 驗兩張 label 表完整覆蓋。改值域必須同步後端 common.py、前端 submissionStatus.ts 與 types 的 DisplayStatus。",
+  "display_status": [
+    "PENDING",
+    "TRANSCODING",
+    "EXTRACTING",
+    "COMPARING",
+    "DONE",
+    "FAILED",
+    "PENDING_REVIEW",
+    "REVIEWED"
+  ],
+  "pipeline_active": ["PENDING", "TRANSCODING", "EXTRACTING", "COMPARING"]
+}

@@ -25,6 +25,12 @@ FastAPI + SQLAlchemy 2.0 + PostgreSQL（`DATABASE_URL` 注入；本機 fallback 
 
 `app/seed.py` 造的 submission 是 `analysis_status='DONE'` 但**磁碟無任何檔案**（無 .npy、無 results/）：pose3d 與 analysis-data 對 seed 資料回 404 是預期行為，前端會降級。日期以 TODAY 相對計算，重跑 seed 永遠有今日資料。
 
+## 測試
+
+- `tests/api/`：對已起好的 stack 打真 HTTP（`API_BASE_URL`），只驗狀態碼與頂層形狀；`test_openapi.py` 釘住關鍵路由存在
+- `tests/unit/`：純函式單元測試，不碰 DB（假物件用 SimpleNamespace）。CI 以 `ci/backend-unit/Dockerfile`（FROM kvgh-backend + pytest）跑，測試檔與 `ci/contracts` golden 皆 ro 掛載；本機重現：`docker build -t kvgh-backend-unit ci/backend-unit/ && docker run --rm -v $PWD/backend/tests/unit:/tests:ro -v $PWD/ci/contracts:/contracts:ro kvgh-backend-unit`
+- `tests/unit/test_contract_golden.py` 釘住 `VERSION`/`OUTPUT_FPS`/`HOLD_FRAMES` 與 `display_status` 值域（golden `ci/contracts/submission_status.json`，前端 vitest 驗同一份）——改幀映射/值域時測試會逼你同步所有耦合端
+
 ## 部署
 
 程式碼打進 image（無 bind mount）。迭代小改：`docker cp backend/app/... kvgh-backend:/app/app/...` + `docker restart kvgh-backend`；收尾一次乾淨 rebuild。

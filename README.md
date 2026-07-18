@@ -96,29 +96,49 @@ feature branch ──MR──> main（CI 驗證綠）──促版──> prod（
                                           git push origin main:prod
 ```
 
-### 驗證層次（validate → lint → build → unit-test → integration-test → e2e-test → deploy → verify）
+### 驗證層次（check → build → test → deploy → verify）
 
-八階段各司其職，每個 job 的 CI log 開頭都會印出「這一步在驗什麼、失敗代表
-什麼」的說明。測試策略：**只驗大功能/穩定契約**（登入、角色權限、頁面存活、
-HTTP 狀態碼、task 名稱契約），不驗實作細節——開發中改功能不需要跟著改測試；
-測試紅燈 = 大功能真的壞了。
+五階段收斂同性質 job，同 stage 平行跑；每個 job 的 CI log 開頭都會印出
+「這一步在驗什麼、失敗代表什麼」的說明。測試策略：**只驗大功能/穩定契約**
+（登入、角色權限、頁面存活、HTTP 狀態碼、task 名稱契約），不驗實作細節——
+開發中改功能不需要跟著改測試；測試紅燈 = 大功能真的壞了。
 
 | Stage | Job | 驗什麼 |
 |---|---|---|
-| validate | `preflight-validate` | 組態快篩：compose 檔（主檔+CI override）可解析、`scripts/*.sh` 語法（秒級、不起容器） |
-| lint | `frontend-lint` / `python-lint` | oxlint；ruff check+format（backend/worker，algorithm 排除） |
+| check | `preflight-validate` | 組態快篩：compose 檔（主檔+CI override）可解析、`scripts/*.sh` 語法（秒級、不起容器） |
+| check | `frontend-lint` / `python-lint` | oxlint；ruff check+format（backend/worker，algorithm 排除） |
 | build | `*-build` | docker build 即建置驗證（前端含 tsc），同時預熱 layer cache |
-| unit-test | `worker-contract-test` | worker image 內驗 `import worker.tasks` + backend 發送的 4 個任務名稱都有註冊（不起 stack） |
-| integration-test | `backend-api-tests` | 起隔離 CI stack，38 項 API 契約：health、四角色登入、越權 403、主要端點 200、媒體 `?token=` |
-| e2e-test | `e2e-login-smoke` | Playwright 四角色登入 → 首頁渲染、無 console error（backend 改動也觸發） |
+| test | `backend-unit-tests` | 幀映射純函式數學、狀態優先序/門檻、golden 契約（VERSION/OUTPUT_FPS/HOLD_FRAMES 釘住 + `display_status` 值域） |
+| test | `frontend-unit-tests` | vitest：utils 純函式 + golden 值域（雙寫契約另一端）+ Testing Library 元件（登入表單、StatusBadge） |
+| test | `worker-contract-test` | worker image 內驗 `import worker.tasks` + backend 發送的 4 個任務名稱都有註冊（不起 stack） |
+| test | `backend-api-tests` | 起隔離 CI stack，API 契約：health、四角色登入、越權 403、主要端點 200、媒體 `?token=`、openapi 關鍵路由釘住 |
+| test | `worker-integration` | 起 rabbitmq + worker-cpu（`--no-deps`，不碰 GPU/權重）：celery ping + 任務註冊在真 broker 上 |
+| test | `e2e-core-flows` | Playwright：四角色登入+主要頁巡檢、護理師審核頁降級模式、醫師調整計畫寫入路徑（backend 改動也觸發） |
 | deploy | `deploy-prod` | 只部署：git diff 選擇性 rebuild + compose up（[scripts/deploy_prod.sh](scripts/deploy_prod.sh)） |
 | verify | `verify-prod` | 部署後對真實環境煙霧測試：frontend、/docs、/api/health、真實登入+auth/me、celery inspect ping（[scripts/verify_deploy.sh](scripts/verify_deploy.sh)） |
 
-integration/e2e 測試跑在**隔離 CI stack**（project `kvgh-ci`，見
-[ci/compose.ci.yml](ci/compose.ci.yml)）：容器名 `-ci` 後綴、image `:ci`
-tag、不發布任何 host port，與 dev(:2000)/prod(:2222) 完全互不干擾；
-`resource_group` 保證同機只有一份，job 前後都 `down -v` 清乾淨。
-本機重現各 job 指令見 DOCKER.md 第 7 節。
+#### 八類測試 → job 對照（測試金字塔）
+
+| 測試類別 | 落點 |
+|---|---|
+| Unit | `backend-unit-tests`＋`frontend-unit-tests` |
+| Component | `frontend-unit-tests` 內的 Testing Library 元件測試 |
+| Integration | `backend-api-tests`（API↔DB）＋`worker-integration`（Worker↔MQ） |
+| Contract | `worker-contract-test`＋[ci/contracts](ci/contracts) golden 值域雙端測試＋`test_openapi.py` |
+| API | `backend-api-tests` |
+| E2E | `e2e-core-flows` |
+| Smoke | e2e 登入 spec＋verify stage 的 `verify_deploy.sh` |
+| Regression | golden fixture 測試＋手動 Run pipeline 全量重跑（rules:changes 不比對） |
+
+雙寫契約 golden：[ci/contracts/submission_status.json](ci/contracts/submission_status.json)
+是 `display_status` 值域的單一來源，後端 pytest 與前端 vitest 各自斷言一致——
+改值域必須同步後端 `common.py`、前端 `submissionStatus.ts` 與 golden。
+
+需要 stack 的三個測試 job（api/worker/e2e）跑在**隔離 CI stack**（project
+`kvgh-ci`，見 [ci/compose.ci.yml](ci/compose.ci.yml)）：容器名 `-ci` 後綴、
+image `:ci` tag、不發布任何 host port，與 dev(:2000)/prod(:2222) 完全互不
+干擾；同 stage 平行排程下靠 `resource_group: ci-test-stack` 輪流獨占全新
+stack，job 前後都 `down -v` 清乾淨。本機重現各 job 指令見 DOCKER.md 第 7 節。
 
 手動（非 CI）執行 `deploy_prod.sh` 時會自動接著跑 `verify_deploy.sh`，
 行為與拆分前相同；也可單獨驗任一 stack：

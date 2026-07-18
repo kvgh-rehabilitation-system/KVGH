@@ -243,7 +243,7 @@ export function AdminUsersPage() {
 
   return (
     <TooltipProvider delayDuration={150}>
-    <PageTransition>
+    <PageTransition testId="admin-users">
       <PageHeader
         title="帳號管理"
         subtitle="建立、停用與維護系統帳號"

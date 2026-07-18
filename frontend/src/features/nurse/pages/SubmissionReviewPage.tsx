@@ -101,7 +101,7 @@ export function SubmissionReviewPage({ readOnly = false }: Props) {
   }
 
   return (
-    <PageTransition>
+    <PageTransition testId="nurse-review">
       <button
         onClick={() => navigate(-1)}
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-bark-400 transition-colors hover:text-clay-600"

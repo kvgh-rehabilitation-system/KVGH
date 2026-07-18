@@ -59,7 +59,7 @@ export function PatientListPage() {
   if (!patients) return <Loading />
 
   return (
-    <PageTransition>
+    <PageTransition testId="doctor-patients">
       <PageHeader title="病患列表" subtitle="管理與查看所有病患資料" />
 
       {/* 巢狀 flex-wrap：空間夠時全並排；不夠時先整組換行，再窄時兩組各自成行 */}

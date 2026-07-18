@@ -9,7 +9,8 @@
 #   docker compose -p kvgh-ci -f docker-compose.yml -f ci/compose.ci.yml down -v --remove-orphans
 #
 # 只點名起 postgres rabbitmq backend frontend:worker/weights-init 不啟動,
-# 不碰 GPU 與 1.5GB 權重。media 改 named volume——down -v 全清,
+# 不碰 GPU 與 1.5GB 權重(worker-integration job 例外:up --no-deps worker-cpu
+# 只驗 celery 註冊與 broker 連線,一樣不跑任務不碰權重)。media 改 named volume——down -v 全清,
 # 也避免容器(root)在 CI workspace 留下 root-owned 檔害 git clean 失敗。
 #
 # `!override` 標記(清空 base 的 ports)需 docker compose >= 2.24。
@@ -47,6 +48,22 @@ services:
       interval: 5s
       timeout: 5s
       retries: 12
+
+  # Worker↔MQ 輕量整合驗證(worker-integration job):
+  # `up -d --no-deps worker-cpu` 跳過 postgres/weights-init 依賴——celery 只需
+  # broker 就能起來註冊任務,DB 連線是任務執行期才發生(惰性),不跑任務就不會碰。
+  # 沿用 kvgh-worker image 不重 tag(gpu/cpu 共用、11GB 不值得雙份)。
+  worker-cpu:
+    container_name: kvgh-worker-cpu-ci
+    environment:
+      # ./algorithm 是 bind mount:容器(root)import 時會把 __pycache__ 寫回
+      # CI workspace,root-owned 檔會讓下個 job 的 git clean 直接炸掉
+      # (worker-contract-test 的既有解法,這裡是 compose 版)
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes: !override
+      - kvgh-ci-media:/data/media
+      - ./algorithm:/algorithm # worker.tasks import 期載入演算法模組,啟動即需要
+      - ${ENGINE_DIR:-./algorithm/2D_and_3D_project}:/engine/2D_and_3D_project
 
   # API 契約測試 runner:profiles 讓 up 不會啟動它,只供
   # `docker compose ... run --rm --build api-tests` 使用(自動接同 network、等 backend healthy)
