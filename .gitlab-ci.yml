@@ -78,7 +78,9 @@ frontend-lint:
       echo "─────────────────────────────────────────────"
     # oxlint 是獨立二進位，npx 只抓一包免 npm ci；版本 pin 與 frontend/package.json 對齊。
     # --user + HOME=/tmp：避免容器以 root 在 workspace 留檔（shell executor 的 git clean 會炸）
+    # UPDATE_NOTIFIER=false：HOME=/tmp 每次都是冷 cache，npx 會印 npm 升版 notice 弄髒 log
     - docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp
+        -e NPM_CONFIG_UPDATE_NOTIFIER=false
         -v "$PWD/frontend:/app" -w /app node:24-alpine
         npx --yes oxlint@1.71.0
     - echo "✔ lint 通過：frontend 無 oxlint 錯誤"
@@ -288,6 +290,7 @@ e2e-login-smoke:
     - echo "── 步驟：以 Playwright 容器執行 e2e 測試（打 http://frontend）"
     - docker run --rm --network kvgh-ci_default
         --user "$(id -u):$(id -g)" -e HOME=/tmp
+        -e NPM_CONFIG_UPDATE_NOTIFIER=false
         -e PW_BASE_URL=http://frontend
         -v "$PWD/frontend/e2e:/e2e" -w /e2e
         mcr.microsoft.com/playwright:v1.61.1-noble

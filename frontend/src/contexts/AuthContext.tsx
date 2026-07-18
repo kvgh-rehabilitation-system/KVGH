@@ -1,59 +1,18 @@
 /**
- * 登入狀態管理：user 存 localStorage（重新整理後還原），token 由 api/client 攔截器取用。
- * token 真偽不在前端驗——任何 API 回 401 時攔截器會強制登出，等效於延遲驗證。
+ * 登入狀態 context 與取用 hook；狀態的建立與寫入在 AuthProvider.tsx
+ * （元件與非元件分檔，維持 fast refresh）。
  */
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
-import type { ReactNode } from 'react'
-import { TOKEN_KEY, USER_KEY } from '../api/client'
-import { login as apiLogin } from '../api/auth'
+import { createContext, useContext } from 'react'
 import type { AuthUser } from '../types'
 
-interface AuthContextValue {
+export interface AuthContextValue {
   user: AuthUser | null
   login: (username: string, password: string) => Promise<AuthUser>
   logout: () => void
 }
 
-const AuthContext = createContext<AuthContextValue | null>(null)
-
-/** 從 localStorage 還原上次登入的使用者（JSON 壞掉視為未登入）。 */
-function readStoredUser(): AuthUser | null {
-  const raw = localStorage.getItem(USER_KEY)
-  if (!raw) return null
-  try {
-    return JSON.parse(raw) as AuthUser
-  } catch {
-    return null
-  }
-}
-
-export function AuthProvider({ children }: { children: ReactNode }) {
-  // lazy initializer：只在首次 render 讀一次 localStorage
-  const [user, setUser] = useState<AuthUser | null>(readStoredUser)
-
-  // 登入成功後同時落 localStorage（token + user）與 state
-  const login = useCallback(async (username: string, password: string) => {
-    const result = await apiLogin(username, password)
-    const authUser: AuthUser = {
-      username: result.username,
-      name: result.name,
-      role: result.role,
-    }
-    localStorage.setItem(TOKEN_KEY, result.access_token)
-    localStorage.setItem(USER_KEY, JSON.stringify(authUser))
-    setUser(authUser)
-    return authUser
-  }, [])
-
-  const logout = useCallback(() => {
-    localStorage.removeItem(TOKEN_KEY)
-    localStorage.removeItem(USER_KEY)
-    setUser(null)
-  }, [])
-
-  const value = useMemo(() => ({ user, login, logout }), [user, login, logout])
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
-}
+/** 僅供 AuthProvider 掛 Provider 用；元件請一律走 useAuth()，勿直接 useContext。 */
+export const AuthContext = createContext<AuthContextValue | null>(null)
 
 /** 取用登入狀態；在 AuthProvider 外呼叫直接拋錯（開發期就抓到掛錯位置）。 */
 export function useAuth(): AuthContextValue {

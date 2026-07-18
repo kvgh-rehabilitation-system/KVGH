@@ -1,5 +1,6 @@
 import { Loader2 } from 'lucide-react'
 import type { TeacherVideo } from '../../../../types'
+import { PROCESSING_STATUSES } from './extractionStatus'
 
 /** 後端 extraction_status → 處理階段文案（worker 管線：轉檔 → 姿態萃取） */
 const extractionLabel: Record<string, string> = {
@@ -9,9 +10,6 @@ const extractionLabel: Record<string, string> = {
   EXTRACTED: '萃取完成',
   FAILED: '處理失敗',
 }
-
-/** 視為「處理中」的狀態集合；export 供父頁面判斷是否需要輪詢刷新 */
-export const PROCESSING_STATUSES = ['PENDING', 'TRANSCODING', 'EXTRACTING']
 
 /**
  * 導師影片的轉檔/萃取/標註狀態 pill（樣式同影片庫選片彈窗）。

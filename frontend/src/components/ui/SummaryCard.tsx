@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
 import { AnimatedNumber } from './AnimatedNumber'
-import { staggerItem } from './PageTransition'
+import { staggerItem } from './motionVariants'
 
 interface Props {
   label: string

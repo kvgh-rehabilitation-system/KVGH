@@ -1,6 +1,9 @@
 # ---- Build stage ----
 FROM node:24-alpine AS build
 
+# 不印 npm 升版 notice（CI build log 保持零警告）
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false
+
 WORKDIR /app
 
 COPY package*.json ./

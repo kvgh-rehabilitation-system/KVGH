@@ -1,9 +1,11 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { Toaster } from './components/ui/sonner'
-import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { useAuth } from './contexts/AuthContext'
+import { AuthProvider } from './contexts/AuthProvider'
 import { AdminLayout, DoctorLayout, NurseLayout, PatientLayout } from './layouts/roleLayouts'
-import { LoginPage, roleHome } from './pages/LoginPage'
+import { LoginPage } from './pages/LoginPage'
 import { RequireRole } from './routes/RequireRole'
+import { roleHome } from './utils/roleHome'
 
 // 管理員端
 import { AdminDashboardPage } from './features/admin/pages/AdminDashboardPage'
