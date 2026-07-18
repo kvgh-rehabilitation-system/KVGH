@@ -113,11 +113,17 @@ feature branch ──MR──> main（CI 驗證綠）──促版──> prod（
 3. 本機安裝並註冊 gitlab-runner：shell executor、tag `kvgh_prod`、勾
    「protected branches only」；執行 job 的使用者需在 `docker` group
    （本機 service 以 `ciot` 執行，已具權限）
-4. 初始化部署 checkout：`git clone <gitlab-url> /data/kvgh-prod`，其
-   `.env` 設 `MEDIA_DIR=/data/KVGH/media`、
-   `ENGINE_DIR=/data/KVGH/algorithm/2D_and_3D_project`（資料與權重不搬家）
-   及正式密碼；一次性遷移：開發目錄 `docker compose down` 後改由
-   `/data/kvgh-prod` `up -d`
+4. 初始化部署 checkout：`git clone <gitlab-url> /data/kvgh-rehabilitation-system`。
+   **現階段為並行驗證模式**：開發目錄 `/data/KVGH` 繼續服務 :2000；部署
+   checkout 放未追蹤的 `docker-compose.override.yml`（`name: kvgh-prod`＋
+   各服務 `container_name` 加 `-prod` 後綴）與自己的 `.env`
+   （`FRONTEND_PORT=2222`、其餘 port 錯開、`ENGINE_DIR` 指
+   `/data/KVGH/algorithm/2D_and_3D_project` 共用權重、MEDIA_DIR 不設＝
+   用自己的空 media），跑完全隔離的 stack（含獨立空 DB），驗證完
+   `docker compose down` 關閉。**未來轉正**：刪 override 檔、`.env` 改回
+   預設 port 並設 `MEDIA_DIR=/data/KVGH/media` 及正式密碼；一次性遷移：
+   開發目錄 `docker compose down` 後改由部署 checkout `up -d`
+   （compose `name: kvgh` 寫死，容器與 volume 名不變，資料不搬家）
 5. worker 改共用 image 名 `kvgh-worker` 後，首次 build 前先跑一次
    `docker tag kvgh-worker-gpu kvgh-worker`（或 `docker compose build worker-gpu`），
    否則 worker-cpu 找不到 image；下次 `docker compose up -d` 讓容器切換到

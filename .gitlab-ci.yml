@@ -75,11 +75,11 @@ deploy-prod:
   resource_group: prod-deploy # 部署互斥：同時多次促版會排隊，不並行
   environment:
     name: production # GitLab Operate→Environments 有部署歷史；對舊部署 re-deploy 即回滾
-    url: http://localhost:2000
+    url: http://localhost:2222
   timeout: 1h
   interruptible: false
   script:
-    # DEPLOY_DIR 預設 /data/kvgh-prod、TARGET_SHA 自動取 $CI_COMMIT_SHA
+    # DEPLOY_DIR 預設 /data/kvgh-rehabilitation-system、TARGET_SHA 自動取 $CI_COMMIT_SHA
     - bash scripts/deploy_prod.sh
 
 # ---- 未來擴充佔位：UAT 環境就緒前（無 uat runner、未設 UAT_ENABLED）永不執行 ----

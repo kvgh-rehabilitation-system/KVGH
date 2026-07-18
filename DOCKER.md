@@ -130,7 +130,7 @@ docker rmi kvgh-worker:<舊sha>            # 手動清特定舊版 SHA tag（CI 
 # 本機驗證「這次改動會觸發哪些 build」（dry-run，什麼都不會真的執行）
 DRY_RUN=1 DEPLOY_DIR=/data/KVGH OLD_SHA=HEAD~1 TARGET_SHA=HEAD bash scripts/deploy_prod.sh
 
-# 真實部署（僅供未來的部署 checkout /data/kvgh-prod 使用；CI pipeline 會自動呼叫）
+# 真實部署（僅供部署 checkout /data/kvgh-rehabilitation-system 使用；CI pipeline 會自動呼叫）
 # ⚠️ 不要在開發目錄真跑：腳本會 git checkout -f 到目標 commit，把工作目錄切走
 bash scripts/deploy_prod.sh   # 需 CI_COMMIT_SHA 或 TARGET_SHA
 ```

@@ -10,14 +10,14 @@
 # 11GB 的 worker image，restart 容器即可。
 #
 # 環境變數：
-#   DEPLOY_DIR     部署 checkout（預設 /data/kvgh-prod；本機測試可指開發目錄）
+#   DEPLOY_DIR     部署 checkout（預設 /data/kvgh-rehabilitation-system；本機測試可指開發目錄）
 #   TARGET_SHA     目標 commit（CI 內自動取 $CI_COMMIT_SHA）
 #   OLD_SHA        視為「已部署」的 commit（預設 DEPLOY_DIR 目前 HEAD）
 #   DRY_RUN=1      只印出將執行的動作，不 fetch/checkout/build/up/restart
 #   KEEP_SHA_TAGS  每個 image 保留的歷史 SHA tag 數（預設 3；磁碟緊繃勿調高）
 set -euo pipefail
 
-DEPLOY_DIR="${DEPLOY_DIR:-/data/kvgh-prod}"
+DEPLOY_DIR="${DEPLOY_DIR:-/data/kvgh-rehabilitation-system}"
 TARGET_SHA="${TARGET_SHA:-${CI_COMMIT_SHA:-}}"
 DRY_RUN="${DRY_RUN:-0}"
 KEEP_SHA_TAGS="${KEEP_SHA_TAGS:-3}"
@@ -89,7 +89,9 @@ fi
 run docker compose up -d --remove-orphans
 if (( RESTART_WORKERS )) && (( ! BUILD_WORKER )); then
   log "algorithm/ 有變（bind mount，免 rebuild）→ restart workers"
-  run docker restart kvgh-worker-gpu kvgh-worker-cpu
+  # 用 compose restart（跟著當前 project 走），不能寫死容器名——
+  # 部署 checkout 可能以 override 改名跑並行 stack（如 kvgh-worker-gpu-prod）
+  run docker compose restart worker-gpu worker-cpu
 fi
 
 if [[ "$DRY_RUN" == "1" ]]; then
