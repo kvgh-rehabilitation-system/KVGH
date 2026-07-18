@@ -6,17 +6,35 @@ React + FastAPI + PostgreSQL + Celery/RabbitMQ + GPU 演算法 worker。
 ## 新機器部署（git clone → docker up 即用）
 
 ```bash
-git clone https://github.com/kvgh-rehabilitation-system/KVGH.git
+# 主倉庫（實驗室自架 GitLab）；GitHub 為備份鏡像，clone 哪個都可以
+git clone https://ciot.imis.ncku.edu.tw:25388/Jerry/kvgh_rehab.git KVGH
+# 或 git clone https://github.com/kvgh-rehabilitation-system/KVGH.git
 cd KVGH
 docker compose up -d --build
 ```
 
-- 首次啟動時 `weights-init` 服務會自動從本 repo 的
-  [GitHub Release `weights-v1`](https://github.com/kvgh-rehabilitation-system/KVGH/releases/tag/weights-v1)
-  下載 ~1.5GB 模型權重到 `algorithm/2D_and_3D_project/`（sha256 驗證、冪等，
-  之後每次啟動秒過），workers 會等權重齊全才啟動——**除了裝好
+- 首次啟動時 `weights-init` 服務會自動下載 ~1.5GB 模型權重到
+  `algorithm/2D_and_3D_project/`（sha256 驗證、冪等，之後每次啟動秒過），
+  workers 會等權重齊全才啟動——**除了裝好
   Docker + nvidia-container-toolkit，不需要在專案資料夾外做任何事**
+- 權重有兩個內容相同的來源：GitLab package registry（Deploy → Package
+  Registry → `weights/weights-v1`）與
+  [GitHub Release `weights-v1`](https://github.com/kvgh-rehabilitation-system/KVGH/releases/tag/weights-v1)。
+  `download_weights.sh` 依 `.git/config` 的 origin 自動優先抓 clone 的那邊，
+  失敗自動落到另一邊
 - `.env` 可省略（compose 全有預設值）；正式環境才 `cp .env.example .env` 改密碼
+
+### 倉庫分工
+
+| 倉庫 | 角色 |
+|---|---|
+| GitLab `Jerry/kvgh_rehab`（自架） | 主開發 + CI/CD + 權重 registry |
+| GitHub `kvgh-rehabilitation-system/KVGH` | 備份鏡像 + 權重備援（Release `weights-v1`） |
+
+GitLab `main` 有新 commit 後手動備份：`git push github main`。
+權重更新流程：改 `scripts/weights_manifest.txt` 後跑
+`GITLAB_TOKEN=<PAT> ./scripts/upload_weights_gitlab.sh` 與
+`GITHUB_TOKEN=<PAT> ./scripts/upload_weights_release.sh` 各上傳一份。
 
 > 📘 所有 Docker 操作（build/熱修/seed/除錯/磁碟維護/疑難排解）完整參考：[DOCKER.md](DOCKER.md)
 
@@ -36,8 +54,9 @@ docker compose up -d --build
 - 首次啟動自動建立種子資料（PostgreSQL 存於 named volume `kvgh-pgdata`）
 - GPU worker 需要 nvidia-container-toolkit；演算法引擎（AlphaPose/MotionBERT
   程式碼 + 編譯 .so）內含於 `algorithm/2D_and_3D_project/`，`.env` 的
-  `ENGINE_DIR` 預設指向它。程式碼與 .so 都在 git 裡；大權重（~1.5GB）由
-  GitHub Release `weights-v1` 首次啟動自動下載（`scripts/download_weights.sh`）。
+  `ENGINE_DIR` 預設指向它。程式碼與 .so 都在 git 裡；大權重（~1.5GB）
+  首次啟動自動下載（`scripts/download_weights.sh`，GitLab registry 與
+  GitHub Release 互為備援）。
   `media/`（影片與分析產物）不進 git，搬既有資料才需要另外拷貝
 
 ## 影片分析流程
@@ -86,8 +105,9 @@ feature branch ──MR──> main（CI 驗證綠）──促版──> prod（
 
 ### 首次接上 GitLab 的設定（之後階段）
 
-1. 實驗室 GitLab 建 project、push 本 repo（**GitHub repo 需保留**：
-   `scripts/download_weights.sh` 的權重來源是 GitHub Release `weights-v1`）
+1. 實驗室 GitLab 建 project、push 本 repo，並執行
+   `GITLAB_TOKEN=<PAT> ./scripts/upload_weights_gitlab.sh` 把權重上傳到
+   GitLab package registry（GitHub repo 保留作備份鏡像與權重備援來源）
 2. Protected branches：`main`（需 MR + pipeline 綠才可合併）、`prod`
    （僅 Maintainer 可 push）
 3. 本機安裝並註冊 gitlab-runner：shell executor、tag `prod`、勾

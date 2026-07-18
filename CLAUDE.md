@@ -9,12 +9,12 @@
 | `frontend/` | React 19 + Vite + TS + Tailwind（feature-based） | frontend/CLAUDE.md |
 | `backend/` | FastAPI + SQLAlchemy（core/db/models/schemas/services/api 分層） | backend/CLAUDE.md |
 | `worker/` | Celery worker（gpu/cpu 佇列），跑演算法管線 | worker/CLAUDE.md |
-| `algorithm/` | 演算法腳本（`humanpose_api.py` ~3300 行遺留程式、`get_2D_3D_script.py`）；`2D_and_3D_project/` = 引擎工作目錄（程式碼與編譯好的 .so 進 git；~1.5GB 權重為 gitignore，由 GitHub Release `weights-v1` 經 `scripts/download_weights.sh` 首次啟動自動下載；`ENGINE_DIR` 預設指此） | worker/CLAUDE.md |
+| `algorithm/` | 演算法腳本（`humanpose_api.py` ~3300 行遺留程式、`get_2D_3D_script.py`）；`2D_and_3D_project/` = 引擎工作目錄（程式碼與編譯好的 .so 進 git；~1.5GB 權重為 gitignore，`scripts/download_weights.sh` 首次啟動自動下載——依 origin 優先抓 clone 來源：GitLab package registry ↔ GitHub Release `weights-v1` 互為備援；`ENGINE_DIR` 預設指此） | worker/CLAUDE.md |
 | `media/` | 影片與演算法產物（bind mount 進 backend 與 worker 的 `/data/media`） | 下方 |
 
 ## 啟動與帳號
 
-- 新機器：`git clone https://github.com/kvgh-rehabilitation-system/KVGH.git` → `docker compose up -d --build` 即用（權重自動下載，無需資料夾外操作）
+- 新機器：clone 主倉庫 GitLab `https://ciot.imis.ncku.edu.tw:25388/Jerry/kvgh_rehab.git`（或備份鏡像 GitHub）→ `docker compose up -d --build` 即用（權重自動下載，無需資料夾外操作）。GitLab `main` 更新後手動 `git push github main` 備份
 - `docker compose up -d --build` → 前端 http://localhost:2000（**port 2000 是使用者指定，勿改**）
 - 服務：frontend(nginx) / backend(uvicorn:8000) / postgres / rabbitmq / worker-gpu / worker-cpu / weights-init（一次性，權重齊全秒過；workers 依賴其成功完成）
 - 帳號：admin01、doctor01-03、nurse01-03、patient01-20，密碼一律 `1234`

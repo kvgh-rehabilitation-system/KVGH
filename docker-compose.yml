@@ -89,7 +89,8 @@ services:
       - backend
     restart: unless-stopped
 
-  # 一次性：檢查/下載模型權重（~1.5GB，來自本 repo 的 GitHub Release weights-v1）。
+  # 一次性：檢查/下載模型權重（~1.5GB）。來源依 clone 出處自動選：GitLab
+  # package registry（主倉庫）與 GitHub Release weights-v1（備份）互為備援。
   # 冪等——權重齊全時秒過；缺權重時 workers 會等它成功完成才啟動。
   weights-init:
     image: curlimages/curl:8.11.1
@@ -102,6 +103,9 @@ services:
     volumes:
       - ${ENGINE_DIR:-./algorithm/2D_and_3D_project}:/engine/2D_and_3D_project
       - ./scripts:/scripts:ro
+      # 讓腳本讀 .git/config 的 origin 判斷 clone 來源；zip 下載（無 .git）
+      # 會被 docker 建出空 .git/ 目錄——無害，腳本讀不到 config 就走預設順序
+      - ./.git:/repo-git:ro
     restart: "no"
 
   worker-gpu:

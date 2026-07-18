@@ -138,9 +138,11 @@ bash scripts/deploy_prod.sh   # 需 CI_COMMIT_SHA 或 TARGET_SHA
 ## 8. 從零重建（新機器 / 災難恢復）
 
 ```bash
-git clone https://github.com/kvgh-rehabilitation-system/KVGH.git && cd KVGH
+git clone https://ciot.imis.ncku.edu.tw:25388/Jerry/kvgh_rehab.git KVGH && cd KVGH
+# GitLab 不可用時改 clone 備份鏡像：https://github.com/kvgh-rehabilitation-system/KVGH.git
 docker compose up -d --build
-# 首次啟動 weights-init 自動下載 ~1.5GB 權重（GitHub Release weights-v1，sha256 驗證、冪等）
+# 首次啟動 weights-init 自動下載 ~1.5GB 權重（sha256 驗證、冪等；
+# 依 origin 優先抓 clone 來源那邊：GitLab package registry ↔ GitHub Release 互為備援）
 # workers 會等權重齊全才啟動；除了 Docker + nvidia-container-toolkit 不需要任何額外安裝
 ```
 
