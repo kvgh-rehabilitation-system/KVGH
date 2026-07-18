@@ -1,0 +1,30 @@
+# Python lint/format(backend + worker;algorithm/ 遺留程式不碰)。
+# 版本 pin 在 .gitlab-ci.yml 的 RUFF_IMAGE(ghcr.io/astral-sh/ruff:0.15.22),
+# 本機請用同版:
+#   docker run --rm -v "$PWD:/io" -w /io ghcr.io/astral-sh/ruff:0.15.22 check backend worker
+#   docker run --rm -v "$PWD:/io" -w /io ghcr.io/astral-sh/ruff:0.15.22 format backend worker
+target-version = "py312"
+line-length = 100
+extend-exclude = ["algorithm", "frontend", "media"]
+
+[lint]
+# 完整但低噪音:pyflakes/pycodestyle 抓真錯誤,I=import 排序、B=bugbear 常見陷阱、
+# UP=語法現代化、SIM=可簡化寫法、RUF=ruff 專屬檢查。
+# 不開 ANN/D/PL 等開發期高噪音規則組——CI 紅燈應代表「幾乎肯定是問題」。
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+ignore = [
+  "E501",   # 行長交給 formatter 治理;中文註解/訊息字串偶爾超長不擋
+  "RUF001", # 全站文案 zh-TW,字串/註解/docstring 的全形標點(,、——)整片誤報
+  "RUF002",
+  "RUF003",
+]
+
+[lint.flake8-bugbear]
+# FastAPI 依賴注入慣用法:參數預設值呼叫 Depends/Query 等是框架契約,非 B008 陷阱
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.File", "fastapi.Form", "fastapi.Header", "fastapi.Body"]
+
+[lint.isort]
+known-first-party = ["app", "worker"]
+
+[format]
+docstring-code-format = true
