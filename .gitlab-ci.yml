@@ -12,8 +12,9 @@
 #   2) deploy 層：scripts/deploy_prod.sh 用 git diff 已部署SHA..目標SHA 決定
 #      要 build 哪些服務（部署間可能跨多個 commit，不能只看本次 push）
 #
-# Runner 需求（見 README「CI/CD」）：本機 shell executor、tag `prod`、
-# gitlab-runner 使用者加 docker group、建議勾 protected branches only。
+# Runner 需求（見 README「CI/CD」）：本機 shell executor、tag `kvgh_prod`、
+# 執行 job 的使用者需在 docker group（本機 service 以 ciot 執行）、
+# 建議勾 protected branches only。
 
 workflow:
   rules:
@@ -28,7 +29,7 @@ stages:
 
 .build-base:
   stage: validate
-  tags: [prod]
+  tags: [kvgh_prod]
   variables:
     # 迴避 compose bake 完成後偶發 hang 不退出的已知問題（worker/CLAUDE.md）
     COMPOSE_BAKE: "false"
@@ -70,7 +71,7 @@ deploy-prod:
   stage: deploy # validate 全綠才會進到此 stage（= 通過 CI 才部署）
   rules:
     - if: '$CI_COMMIT_BRANCH == "prod"'
-  tags: [prod]
+  tags: [kvgh_prod]
   resource_group: prod-deploy # 部署互斥：同時多次促版會排隊，不並行
   environment:
     name: production # GitLab Operate→Environments 有部署歷史；對舊部署 re-deploy 即回滾
@@ -86,7 +87,7 @@ deploy-uat:
   stage: deploy
   rules:
     - if: '$CI_COMMIT_BRANCH == "uat" && $UAT_ENABLED == "true"'
-  tags: [uat]
+  tags: [kvgh_uat]
   resource_group: uat-deploy
   environment:
     name: uat

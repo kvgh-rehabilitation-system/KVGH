@@ -110,8 +110,9 @@ feature branch ──MR──> main（CI 驗證綠）──促版──> prod（
    GitLab package registry（GitHub repo 保留作備份鏡像與權重備援來源）
 2. Protected branches：`main`（需 MR + pipeline 綠才可合併）、`prod`
    （僅 Maintainer 可 push）
-3. 本機安裝並註冊 gitlab-runner：shell executor、tag `prod`、勾
-   「protected branches only」；`gitlab-runner` 使用者加入 `docker` group
+3. 本機安裝並註冊 gitlab-runner：shell executor、tag `kvgh_prod`、勾
+   「protected branches only」；執行 job 的使用者需在 `docker` group
+   （本機 service 以 `ciot` 執行，已具權限）
 4. 初始化部署 checkout：`git clone <gitlab-url> /data/kvgh-prod`，其
    `.env` 設 `MEDIA_DIR=/data/KVGH/media`、
    `ENGINE_DIR=/data/KVGH/algorithm/2D_and_3D_project`（資料與權重不搬家）
