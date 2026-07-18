@@ -55,6 +55,11 @@ services:
   # 沿用 kvgh-worker image 不重 tag(gpu/cpu 共用、11GB 不值得雙份)。
   worker-cpu:
     container_name: kvgh-worker-cpu-ci
+    environment:
+      # ./algorithm 是 bind mount:容器(root)import 時會把 __pycache__ 寫回
+      # CI workspace,root-owned 檔會讓下個 job 的 git clean 直接炸掉
+      # (worker-contract-test 的既有解法,這裡是 compose 版)
+      PYTHONDONTWRITEBYTECODE: "1"
     volumes: !override
       - kvgh-ci-media:/data/media
       - ./algorithm:/algorithm # worker.tasks import 期載入演算法模組,啟動即需要
