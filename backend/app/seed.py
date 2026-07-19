@@ -18,6 +18,7 @@ from app.db.session import SessionLocal, engine
 from app.models.patient import Patient
 from app.models.rehab_plan import PlanItem, PlanVersion, RehabPlan
 from app.models.submission import AnalysisResult, NurseReport, VideoSubmission
+from app.models.teacher_video import TeacherVideo
 from app.models.user import User
 from app.models.visit import Visit
 
@@ -663,6 +664,19 @@ def seed_demo(db: Session, staff: dict[str, User], patients: dict[str, Patient])
         "ADJUST_PLAN",
         14,
     )
+    # 就緒導師影片綁 pl01 全部動作：病患上傳的前置擋門只看 DB 狀態
+    # （EXTRACTED+ANNOTATED），磁碟無檔案照舊（同 submission 降級慣例）——
+    # e2e 上傳流程 spec 靠這筆讓 patient01 的上傳按鈕解鎖
+    tv_ready = TeacherVideo(
+        uploaded_by=n1.id,
+        name="腰椎示範動作（demo）",
+        extraction_status="EXTRACTED",
+        annotation_status="ANNOTATED",
+    )
+    db.add(tv_ready)
+    db.flush()
+    for it in pl01.current_version.items:
+        it.teacher_video_id = tv_ready.id
     submission_series(
         db,
         pl01,

@@ -65,6 +65,17 @@ services:
       - ./algorithm:/algorithm # worker.tasks import 期載入演算法模組,啟動即需要
       - ${ENGINE_DIR:-./algorithm/2D_and_3D_project}:/engine/2D_and_3D_project
 
+  # golden 全管線（algorithm-golden-pipeline 手動 job）用：同 worker-cpu 收進
+  # CI named volume；ENGINE_DIR 由 job variables 指向本機既有權重（免下載 1.5GB）
+  worker-gpu:
+    container_name: kvgh-worker-gpu-ci
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes: !override
+      - kvgh-ci-media:/data/media
+      - ./algorithm:/algorithm
+      - ${ENGINE_DIR:-./algorithm/2D_and_3D_project}:/engine/2D_and_3D_project
+
   # API 契約測試 runner:profiles 讓 up 不會啟動它,只供
   # `docker compose ... run --rm --build api-tests` 使用(自動接同 network、等 backend healthy)
   api-tests:
@@ -74,6 +85,8 @@ services:
     image: kvgh-api-tests
     environment:
       API_BASE_URL: http://backend:8000
+      # CI job 有跑 media_fixture.py，啟用 test_media_range.py（本機直打 dev 時預設 skip）
+      MEDIA_FIXTURE: "1"
     volumes:
       - ./backend/tests/api:/tests:ro
     depends_on:

@@ -46,7 +46,7 @@ export function PortalPlanDetailPage() {
   if (!plan) return <Loading />
 
   return (
-    <PageTransition>
+    <PageTransition testId="patient-plan-detail">
       <Link to="/portal/rehabilitation-plans" className="mb-4 inline-flex items-center gap-1.5 text-sm text-bark-400 hover:text-clay-600">
         <ArrowLeft size={15} /> 返回復健計畫
       </Link>

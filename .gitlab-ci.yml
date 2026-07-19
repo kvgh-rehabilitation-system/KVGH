@@ -269,6 +269,7 @@ worker-contract-test:
     - changes:
         - worker/**/*
         - backend/app/**/* # task_queue 契約兩端
+        - algorithm/**/*.py # bind mount 進 worker，import 期就載入——改壞不 build 也會炸
         - algorithm/requirements.txt
         - ci/**/*
   script:
@@ -443,30 +444,36 @@ backend-api-tests:
       [失敗代表]
       後端大功能真的壞了（測試只驗穩定契約，不驗實作細節）
       [執行方式]
-      [1/5] build backend image（build 階段已建過 → 全 cache hit）
-      [2/5] 啟動 postgres + rabbitmq 並等待 healthy
-      [3/5] 以一次性容器建 demo seed 資料（須在 backend 啟動前）
-      [4/5] 啟動 backend 並等待 healthy
-      [5/5] 執行 pytest API 契約測試（backend/tests/api）
+      [1/6] build backend image（build 階段已建過 → 全 cache hit）
+      [2/6] 啟動 postgres + rabbitmq 並等待 healthy
+      [3/6] 以一次性容器建 demo seed 資料（須在 backend 啟動前）
+      [4/6] 寫入 media Range 測試 fixture（4KB 假影片 + video_path）
+      [5/6] 啟動 backend 並等待 healthy
+      [6/6] 執行 pytest API 契約測試（backend/tests/api）
       =========================================
       EOF
     # demo seed 必須在 backend 啟動前跑：entrypoint 的帳號 seed 一跑，
     # 防重複機制（有任何帳號就整批跳過）會讓之後的 --demo 變 no-op。
     # CI 的 DB 每次都是全新的（down -v 保證），順序：先一次性容器建 demo 資料
     # → 再起 backend（entrypoint seed 自動跳過）→ 列表端點就有真資料可驗序列化
-    - echo "--- [1/5] build backend image ..."
+    - echo "--- [1/6] build backend image ..."
     - $CI_COMPOSE build backend
     - echo "✓ 通過"
-    - echo "--- [2/5] 啟動 postgres + rabbitmq 並等待 healthy ..."
+    - echo "--- [2/6] 啟動 postgres + rabbitmq 並等待 healthy ..."
     - $CI_COMPOSE up -d --wait postgres rabbitmq
     - echo "✓ 通過"
-    - echo "--- [3/5] 以一次性容器建 demo seed 資料 ..."
+    - echo "--- [3/6] 以一次性容器建 demo seed 資料 ..."
     - $CI_COMPOSE run --rm --entrypoint "python -m app.seed --demo" backend
     - echo "✓ 通過"
-    - echo "--- [4/5] 啟動 backend 並等待 healthy ..."
+    - echo "--- [4/6] 寫入 media Range 測試 fixture ..."
+    # 掛進 /app/：script 所在目錄 = sys.path[0]，app 套件才 import 得到
+    - $CI_COMPOSE run --rm -v "$PWD/ci/api-tests/media_fixture.py:/app/media_fixture.py:ro"
+        --entrypoint "python /app/media_fixture.py" backend
+    - echo "✓ 通過"
+    - echo "--- [5/6] 啟動 backend 並等待 healthy ..."
     - $CI_COMPOSE up -d --wait backend
     - echo "✓ 通過"
-    - echo "--- [5/5] 執行 pytest API 契約測試 ..."
+    - echo "--- [6/6] 執行 pytest API 契約測試 ..."
     - $CI_COMPOSE run --rm --build api-tests
     - echo "✓ 通過"
     - echo "=== Pytest 全部通過 ==="
@@ -477,6 +484,7 @@ worker-integration:
     - changes:
         - worker/**/*
         - backend/app/**/* # worker image COPY backend/app（共用 models）
+        - algorithm/**/*.py # worker-cpu 啟動即 import algorithm 模組（bind mount）
         - ci/**/*
         - docker-compose.yml
   script:
@@ -486,29 +494,35 @@ worker-integration:
       Celery：驗證 Worker↔MQ 整合
       =========================================
       本階段會驗證以下內容：
-      [1/2] worker 能對真 broker 起來 (rabbitmq + worker-cpu)
+      [1/3] worker 能對真 broker 起來 (rabbitmq + worker-cpu)
       驗證摘要：
-      - 起隔離 CI stack 的 rabbitmq，worker-cpu 以 --no-deps 啟動
-        （跳過 weights-init/postgres——不跑任務、不碰 GPU 與權重）
-      [2/2] 任務在 broker 上註冊 (inspect ping / registered)
+      - 起隔離 CI stack 的 rabbitmq + postgres，worker-cpu 以 --no-deps 啟動
+        （跳過 weights-init——不碰 GPU 與權重）
+      [2/3] 任務在 broker 上註冊 (inspect ping / registered)
       驗證摘要：
       - ping 回 pong + 四個任務名都註冊——broker URL/佇列設定/模組載入全鏈路
+      [3/3] transcode 任務真執行 (worker/tests/run_transcode_e2e.py)
+      驗證摘要：
+      - 發真任務走 broker→worker→ffmpeg→media→DB 全鏈路：
+        成功路徑驗產物與 DB 回填、失敗路徑驗 FAILED+錯誤明細落 DB
       [失敗代表]
-      worker 起不來（import 爆炸/broker 連不上）或任務註冊不完整
+      worker 起不來（import 爆炸/broker 連不上）、任務註冊不完整，
+      或任務執行鏈路壞了（轉檔/DB 寫入/錯誤處理）
       [執行方式]
-      [1/4] build worker image（build 階段已建過 → 全 cache hit）
-      [2/4] 啟動 rabbitmq 並等待 healthy
-      [3/4] 啟動 worker-cpu（--no-deps）並等 celery ping 回 pong
-      [4/4] inspect registered 驗四個任務名
+      [1/5] build worker image（build 階段已建過 → 全 cache hit）
+      [2/5] 啟動 rabbitmq + postgres 並等待 healthy
+      [3/5] 啟動 worker-cpu（--no-deps）並等 celery ping 回 pong
+      [4/5] inspect registered 驗四個任務名
+      [5/5] 一次性容器執行 transcode 任務 E2E（成功 + 失敗路徑）
       =========================================
       EOF
-    - echo "--- [1/4] 確認 worker image 為當前程式碼 ..."
+    - echo "--- [1/5] 確認 worker image 為當前程式碼 ..."
     - docker compose build worker-gpu
     - echo "✓ 通過"
-    - echo "--- [2/4] 啟動 rabbitmq 並等待 healthy ..."
-    - $CI_COMPOSE up -d --wait rabbitmq
+    - echo "--- [2/5] 啟動 rabbitmq + postgres 並等待 healthy ..."
+    - $CI_COMPOSE up -d --wait rabbitmq postgres
     - echo "✓ 通過"
-    - echo "--- [3/4] 啟動 worker-cpu 並等 celery ping ..."
+    - echo "--- [3/5] 啟動 worker-cpu 並等 celery ping ..."
     - $CI_COMPOSE up -d --no-deps worker-cpu
     # 先收完整輸出再 grep：直接 pipe 給 grep -q 會提早關管線，exec 收到 EPIPE
     # 回 255 被誤判失敗（同 verify_deploy.sh 的已知坑）
@@ -525,12 +539,17 @@ worker-integration:
         exit 1
       fi
     - echo "✓ 通過"
-    - echo "--- [4/4] inspect registered 驗四個任務名 ..."
+    - echo "--- [4/5] inspect registered 驗四個任務名 ..."
     - |
       reg=$($CI_COMPOSE exec -T worker-cpu celery -A worker.celery_app inspect registered --timeout 10)
       for t in worker.tasks.transcode worker.tasks.extract_pose worker.tasks.run_comparison worker.tasks.save_annotation; do
         if grep -q "$t" <<<"$reg"; then echo "  ✓ $t"; else echo "✗ 任務 $t 未註冊" >&2; exit 1; fi
       done
+    - echo "✓ 通過"
+    - echo "--- [5/5] transcode 任務 E2E（成功 + 失敗路徑）..."
+    - $CI_COMPOSE run --rm --no-deps
+        -v "$PWD/worker/tests:/app/worker/tests:ro"
+        --entrypoint "python /app/worker/tests/run_transcode_e2e.py" worker-cpu
     - echo "✓ 通過"
     - echo "=== Worker↔MQ 整合 全部通過 ==="
 
@@ -601,6 +620,64 @@ e2e-core-flows:
       - frontend/e2e/playwright-report
       - frontend/e2e/test-results
     expire_in: 1 week
+
+# ---- 手動觸發：golden 全管線（真 GPU + 真權重；改 humanpose_api.py/引擎時手動點）----
+# 日常 pipeline 不跑（GPU 萃取要數分鐘～數十分鐘）；allow_failure 讓它永不擋 pipeline。
+# golden 素材 = 本機保留的舊產物（teacher_videos/2 + submissions/74，見根目錄 CLAUDE.md），
+# ENGINE_DIR 指向 dev checkout 的既有權重（免每次下載 1.5GB；weights-init 不啟動）
+algorithm-golden-pipeline:
+  extends: .ci-stack-base
+  timeout: 1h
+  rules:
+    - when: manual
+  allow_failure: true
+  variables:
+    COMPOSE_BAKE: "false"
+    BUILDX_BUILDER: "default"
+    CI_COMPOSE: docker compose -p kvgh-ci -f docker-compose.yml -f ci/compose.ci.yml
+    ENGINE_DIR: /data/KVGH/algorithm/2D_and_3D_project
+    GOLDEN_MEDIA: /data/KVGH/media
+  script:
+    - |
+      cat <<'EOF'
+      =========================================
+      Golden：驗證演算法全管線（GPU + 權重）
+      =========================================
+      本階段會驗證以下內容：
+      [1/1] golden 影片全管線 (worker/tests/run_golden_pipeline.py)
+      驗證摘要：
+      - 以保留的 golden 素材真跑 transcode → extract_pose(GPU) → run_comparison，
+        斷言 6 檔產物齊全、四分數值域、狀態轉 PENDING_REVIEW
+      [失敗代表]
+      演算法管線真的壞了（humanpose_api/引擎/權重/合成邏輯）——看 log 卡在哪段
+      [執行方式]
+      [1/5] build worker + backend image（cache hit 秒過）
+      [2/5] 啟動 postgres + rabbitmq 並等待 healthy
+      [3/5] 以一次性容器建 demo seed 資料（submission 需掛計畫 FK 鏈）
+      [4/5] 啟動 worker-cpu + worker-gpu（--no-deps，不跑 weights-init）
+      [5/5] 一次性容器執行 golden 全管線腳本（佈置素材 → 發送 → 輪詢斷言）
+      =========================================
+      EOF
+    - echo "--- [1/5] build worker + backend image ..."
+    - docker compose build worker-gpu
+    - $CI_COMPOSE build backend
+    - echo "✓ 通過"
+    - echo "--- [2/5] 啟動 postgres + rabbitmq 並等待 healthy ..."
+    - $CI_COMPOSE up -d --wait postgres rabbitmq
+    - echo "✓ 通過"
+    - echo "--- [3/5] 以一次性容器建 demo seed 資料 ..."
+    - $CI_COMPOSE run --rm --entrypoint "python -m app.seed --demo" backend
+    - echo "✓ 通過"
+    - echo "--- [4/5] 啟動 worker-cpu + worker-gpu ..."
+    - $CI_COMPOSE up -d --no-deps worker-cpu worker-gpu
+    - echo "✓ 通過"
+    - echo "--- [5/5] golden 全管線（transcode → extract(GPU) → compare）..."
+    - $CI_COMPOSE run --rm --no-deps
+        -v "$PWD/worker/tests:/app/worker/tests:ro"
+        -v "$GOLDEN_MEDIA:/golden:ro"
+        --entrypoint "python /app/worker/tests/run_golden_pipeline.py" worker-cpu
+    - echo "✓ 通過"
+    - echo "=== Golden 全管線 全部通過 ==="
 
 # ---- deploy stage：前面全綠才會進到此階段（= 通過 CI 才部署） ----
 deploy-prod:
