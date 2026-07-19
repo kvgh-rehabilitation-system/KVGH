@@ -269,6 +269,7 @@ worker-contract-test:
     - changes:
         - worker/**/*
         - backend/app/**/* # task_queue 契約兩端
+        - algorithm/**/*.py # bind mount 進 worker，import 期就載入——改壞不 build 也會炸
         - algorithm/requirements.txt
         - ci/**/*
   script:
@@ -477,6 +478,7 @@ worker-integration:
     - changes:
         - worker/**/*
         - backend/app/**/* # worker image COPY backend/app（共用 models）
+        - algorithm/**/*.py # worker-cpu 啟動即 import algorithm 模組（bind mount）
         - ci/**/*
         - docker-compose.yml
   script:
