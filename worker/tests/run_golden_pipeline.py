@@ -68,7 +68,7 @@ def _prepare_rows() -> None:
         # 掛在 demo seed 任一 ONGOING 計畫的動作下（submission 的三層 FK 需要）
         item = (
             s.query(PlanItem, PlanVersion, RehabPlan)
-            .join(PlanVersion, PlanItem.plan_version_id == PlanVersion.id)
+            .join(PlanVersion, PlanItem.version_id == PlanVersion.id)
             .join(RehabPlan, PlanVersion.plan_id == RehabPlan.id)
             .filter(RehabPlan.status == "ONGOING")
             .first()
@@ -87,6 +87,9 @@ def _prepare_rows() -> None:
                     annotation_status="ANNOTATED",
                 )
             )
+            # 先落地導師列：submission 的 teacher_video_id FK 依賴它，
+            # 無 relationship 可推 flush 順序，靠交易切分保證先後
+            s.commit()
         if s.get(VideoSubmission, SID) is None:
             s.add(
                 VideoSubmission(

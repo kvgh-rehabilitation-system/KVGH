@@ -109,11 +109,12 @@ feature branch ──MR──> main（CI 驗證綠）──促版──> prod（
 | check | `frontend-lint` / `python-lint` | oxlint；ruff check+format（backend/worker，algorithm 排除） |
 | build | `*-build` | docker build 即建置驗證（前端含 tsc），同時預熱 layer cache |
 | test | `backend-unit-tests` | 幀映射純函式數學、狀態優先序/門檻、golden 契約（VERSION/OUTPUT_FPS/HOLD_FRAMES 釘住 + `display_status` 值域） |
-| test | `frontend-unit-tests` | vitest：utils 純函式 + golden 值域（雙寫契約另一端）+ Testing Library 元件（登入表單、StatusBadge） |
-| test | `worker-contract-test` | worker image 內驗 `import worker.tasks` + backend 發送的 4 個任務名稱都有註冊（不起 stack） |
-| test | `backend-api-tests` | 起隔離 CI stack，API 契約：health、四角色登入、越權 403、主要端點 200、媒體 `?token=`、openapi 關鍵路由釘住 |
-| test | `worker-integration` | 起 rabbitmq + worker-cpu（`--no-deps`，不碰 GPU/權重）：celery ping + 任務註冊在真 broker 上 |
-| test | `e2e-core-flows` | Playwright：四角色登入+主要頁巡檢、護理師審核頁降級模式、醫師調整計畫寫入路徑（backend 改動也觸發） |
+| test | `frontend-unit-tests` | vitest：utils 純函式 + golden 值域（雙寫契約另一端）+ Testing Library 元件（登入表單、StatusBadge、審核表單、病患上傳、計畫調整表單） |
+| test | `worker-contract-test` | worker image 內驗 `import worker.tasks` + backend 發送的 4 個任務名稱都有註冊（不起 stack；`algorithm/**/*.py` 改動也觸發——import 期就載入） |
+| test | `backend-api-tests` | 起隔離 CI stack，API 契約：health、四角色登入、角色越權 403、物件層授權（病患跨人 404/醫護代審代調契約）、寫入路徑（審核/計畫調整/帳號 CRUD 軟刪除降級）、媒體 `?token=` 與 Range/206、openapi 關鍵路由釘住 |
+| test | `worker-integration` | 起 rabbitmq + postgres + worker-cpu（`--no-deps`，不碰 GPU/權重）：celery ping + 任務註冊 + transcode 任務真執行（broker→worker→ffmpeg→media→DB，成功+失敗路徑） |
+| test | `e2e-core-flows` | Playwright：四角色登入+主要頁巡檢、護理師審核頁降級模式、醫師調整計畫寫入路徑、病患上傳影片、審核回饋閉環（backend 改動也觸發） |
+| test | `algorithm-golden-pipeline` | **手動觸發**（真 GPU+權重，改 `humanpose_api.py`/引擎時點）：golden 影片全管線，斷言 6 檔產物與四分數值域 |
 | deploy | `deploy-prod` | 只部署：git diff 選擇性 rebuild + compose up（[scripts/deploy_prod.sh](scripts/deploy_prod.sh)） |
 | verify | `verify-prod` | 部署後對真實環境煙霧測試：frontend、/docs、/api/health、真實登入+auth/me、celery inspect ping（[scripts/verify_deploy.sh](scripts/verify_deploy.sh)） |
 
