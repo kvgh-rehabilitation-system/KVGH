@@ -48,3 +48,15 @@ def tokens(client):
 def auth(tokens):
     """auth("nurse") → Bearer header dict。"""
     return lambda role: {"Authorization": f"Bearer {tokens[role]}"}
+
+
+@pytest.fixture(scope="session")
+def login_as(client):
+    """以任意帳號登入取 Bearer header（tokens 只涵蓋四個代表帳號）。"""
+
+    def _login(username: str, password: str = PASSWORD) -> dict:
+        r = client.post("/api/auth/login", json={"username": username, "password": password})
+        assert r.status_code == 200, f"{username} 登入失敗: {r.status_code} {r.text}"
+        return {"Authorization": f"Bearer {r.json()['access_token']}"}
+
+    return _login

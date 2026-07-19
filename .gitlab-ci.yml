@@ -444,30 +444,36 @@ backend-api-tests:
       [失敗代表]
       後端大功能真的壞了（測試只驗穩定契約，不驗實作細節）
       [執行方式]
-      [1/5] build backend image（build 階段已建過 → 全 cache hit）
-      [2/5] 啟動 postgres + rabbitmq 並等待 healthy
-      [3/5] 以一次性容器建 demo seed 資料（須在 backend 啟動前）
-      [4/5] 啟動 backend 並等待 healthy
-      [5/5] 執行 pytest API 契約測試（backend/tests/api）
+      [1/6] build backend image（build 階段已建過 → 全 cache hit）
+      [2/6] 啟動 postgres + rabbitmq 並等待 healthy
+      [3/6] 以一次性容器建 demo seed 資料（須在 backend 啟動前）
+      [4/6] 寫入 media Range 測試 fixture（4KB 假影片 + video_path）
+      [5/6] 啟動 backend 並等待 healthy
+      [6/6] 執行 pytest API 契約測試（backend/tests/api）
       =========================================
       EOF
     # demo seed 必須在 backend 啟動前跑：entrypoint 的帳號 seed 一跑，
     # 防重複機制（有任何帳號就整批跳過）會讓之後的 --demo 變 no-op。
     # CI 的 DB 每次都是全新的（down -v 保證），順序：先一次性容器建 demo 資料
     # → 再起 backend（entrypoint seed 自動跳過）→ 列表端點就有真資料可驗序列化
-    - echo "--- [1/5] build backend image ..."
+    - echo "--- [1/6] build backend image ..."
     - $CI_COMPOSE build backend
     - echo "✓ 通過"
-    - echo "--- [2/5] 啟動 postgres + rabbitmq 並等待 healthy ..."
+    - echo "--- [2/6] 啟動 postgres + rabbitmq 並等待 healthy ..."
     - $CI_COMPOSE up -d --wait postgres rabbitmq
     - echo "✓ 通過"
-    - echo "--- [3/5] 以一次性容器建 demo seed 資料 ..."
+    - echo "--- [3/6] 以一次性容器建 demo seed 資料 ..."
     - $CI_COMPOSE run --rm --entrypoint "python -m app.seed --demo" backend
     - echo "✓ 通過"
-    - echo "--- [4/5] 啟動 backend 並等待 healthy ..."
+    - echo "--- [4/6] 寫入 media Range 測試 fixture ..."
+    # 掛進 /app/：script 所在目錄 = sys.path[0]，app 套件才 import 得到
+    - $CI_COMPOSE run --rm -v "$PWD/ci/api-tests/media_fixture.py:/app/media_fixture.py:ro"
+        --entrypoint "python /app/media_fixture.py" backend
+    - echo "✓ 通過"
+    - echo "--- [5/6] 啟動 backend 並等待 healthy ..."
     - $CI_COMPOSE up -d --wait backend
     - echo "✓ 通過"
-    - echo "--- [5/5] 執行 pytest API 契約測試 ..."
+    - echo "--- [6/6] 執行 pytest API 契約測試 ..."
     - $CI_COMPOSE run --rm --build api-tests
     - echo "✓ 通過"
     - echo "=== Pytest 全部通過 ==="

@@ -74,6 +74,8 @@ services:
     image: kvgh-api-tests
     environment:
       API_BASE_URL: http://backend:8000
+      # CI job 有跑 media_fixture.py，啟用 test_media_range.py（本機直打 dev 時預設 skip）
+      MEDIA_FIXTURE: "1"
     volumes:
       - ./backend/tests/api:/tests:ro
     depends_on:
